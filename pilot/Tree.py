@@ -1,4 +1,5 @@
 """ This is an implementation of the tree data structure"""
+
 from __future__ import annotations
 
 import uuid

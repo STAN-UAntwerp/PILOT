@@ -1,4 +1,5 @@
 """ This module implements PILOT"""
+
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -244,9 +245,7 @@ def best_split(
                 coef_con = 0
                 # compute the RSS and the loss according to the information criterion
                 rss = (
-                    Moments[1, 4]
-                    + (num[1] * intercept_con**2)
-                    - 2 * intercept_con * Moments[1, 3]
+                    Moments[1, 4] + (num[1] * intercept_con**2) - 2 * intercept_con * Moments[1, 3]
                 )
                 loss = loss_fun(
                     criteria=split_criterion,
