@@ -142,15 +142,103 @@ def process_lin(
     return loss, best_loss, best_node, best_feature, interval, lm_L
 
 
-def update_moments(num, X_add, y_add, Moments):
-    num += np.array([1, -1]) * X_add.shape[0]
+def preprocess_blin(num, Moments):
+    XtX = np.array(
+        [
+            [
+                np.float64(num.sum()),
+                Moments[:, 0].sum(),
+                Moments[:, 0].sum(),
+            ],
+            [Moments[:, 0].sum(), Moments[:, 1].sum(), Moments[:, 1].sum()],
+            [Moments[:, 0].sum(), Moments[:, 1].sum(), Moments[:, 1].sum()],
+        ]
+    )
+    XtY = np.array([[Moments[1, 3]], [Moments[1, 2]], [Moments[1, 2]]])
+    pre_pivot = 0.0
+    return XtX, XtY, pre_pivot
+
+
+def get_sorted_X_y(sorted_X_indices, feature_id, index, X, y):
+    idx = sorted_X_indices[feature_id - 1]
+    idx = idx[isin(idx, index)]
+    X_sorted, y_sorted = X[idx].copy(), y[idx].copy()
+    return X_sorted, y_sorted
+
+
+def update_blin_coef(
+    pivot,
+    pre_pivot,
+    num,
+    Moments,
+    XtX,
+    XtY,
+    possible_p,
+    p,
+    lenp,
+    min_unique_values_regression,
+    min_sample_leaf,
+    i,
+    coef,
+    intercept,
+    ndups,
+):
+    # First maintain xi
+    xi = pivot - pre_pivot
+
+    # update XtX and XtY
+    XtX += np.array(
+        [
+            [0.0, 0.0, -xi * num[1]],
+            [0.0, 0.0, -xi * Moments[1, 0]],
+            [
+                -xi * num[1],
+                -xi * Moments[1, 0],
+                xi**2 * num[1] - 2 * xi * XtX[0, 2],
+            ],
+        ]
+    )
+    XtY += np.array([[0.0], [0.0], [-xi * Moments[1, 3]]])
+
+    # useless to check the first pivot or partition that
+    # leads to less than min_sample_leaf samples
+    if (
+        pivot != possible_p[0]
+        and p >= 1
+        and lenp >= min_unique_values_regression
+        and np.linalg.det(XtX) > 0.001
+        and num[0] + ndups >= min_sample_leaf
+        and num[1] - ndups >= min_sample_leaf
+    ):
+        coefs = np.linalg.solve(XtX, XtY).flatten()
+        coef[i, :] = np.array([coefs[1], coefs[1] + coefs[2]])
+        intercept[i, :] = np.array([coefs[0], coefs[0] - coefs[2] * pivot])
+    i += 1  # we add a dimension to the coef and intercept arrays
+    pre_pivot = pivot
+
+    return xi, XtX, XtY, pre_pivot, i, coef, intercept
+
+
+def calculate_rss(num, Moments, coef, intercept):
+    return (
+        Moments[:, 4]
+        + (num * intercept**2)
+        + (2 * coef * intercept * Moments[:, 0])
+        + coef**2 * Moments[:, 1]
+        - 2 * intercept * Moments[:, 3]
+        - 2 * coef * Moments[:, 2]
+    ).sum(axis=1)
+
+
+def update_moments(num, pivot, y_add, Moments, ndups):
+    num += np.array([1, -1]) * ndups
 
     # first update moments then check if this pivot is eligable for a pcon/plin split
     Moments_add = np.array(
         [
-            np.sum(X_add),
-            np.sum(X_add**2),
-            np.sum(X_add.reshape(-1, 1) * y_add),
+            pivot,
+            pivot**2,
+            np.sum(pivot * y_add),
             np.sum(y_add),
             np.sum(y_add**2),
         ]
@@ -260,9 +348,7 @@ def best_split(
     # search for the best split among all features, negelecting the indices column
     for feature_id in random_sample(np.arange(1, n_features + 1), max_features_considered):
         # get sorted X, y
-        idx = sorted_X_indices[feature_id - 1]
-        idx = idx[isin(idx, index)]
-        X_sorted, y_sorted = X[idx].copy(), y[idx].copy()
+        X_sorted, y_sorted = get_sorted_X_y(sorted_X_indices, feature_id, index, X, y)
 
         # Initialize possible pivots
         possible_p = np.unique(X_sorted[:, feature_id])
@@ -321,19 +407,10 @@ def best_split(
             if "blin" in regression_nodes:
                 # Moments need to be updated for blin:
                 # [sum(x-xi)+, sum[(x-xi)+]**2, sum[x(x-xi)+], sum[y(x-xi)+]]
-                XtX = np.array(
-                    [
-                        [
-                            np.float64(num.sum()),
-                            Moments[:, 0].sum(),
-                            Moments[:, 0].sum(),
-                        ],
-                        [Moments[:, 0].sum(), Moments[:, 1].sum(), Moments[:, 1].sum()],
-                        [Moments[:, 0].sum(), Moments[:, 1].sum(), Moments[:, 1].sum()],
-                    ]
-                )
-                XtY = np.array([[Moments[1, 3]], [Moments[1, 2]], [Moments[1, 2]]])
-                pre_pivot = 0.0
+                XtX, XtY, pre_pivot = preprocess_blin(num, Moments)
+
+            if len({"blin", "pcon", "plin"}.intersection(regression_nodes)) == 0:
+                continue
 
             # pcon, blin and plin: try each possible split and
             # find the best one the last number are never used for split
@@ -343,46 +420,31 @@ def best_split(
                 pivot = possible_p[p]
                 # update cases in the left region
                 index_add = X_sorted[:, feature_id] == pivot
-                X_add = X_sorted[index_add, feature_id]
+                ndups = index_add.sum()
                 y_add = y_sorted[index_add]
 
                 # BLIN:
                 if "blin" in regression_nodes:
-                    # First maintain xi
-                    xi = pivot - pre_pivot
-
-                    # update XtX and XtY
-                    XtX += np.array(
-                        [
-                            [0.0, 0.0, -xi * num[1]],
-                            [0.0, 0.0, -xi * Moments[1, 0]],
-                            [
-                                -xi * num[1],
-                                -xi * Moments[1, 0],
-                                xi**2 * num[1] - 2 * xi * XtX[0, 2],
-                            ],
-                        ]
+                    xi, XtX, XtY, pre_pivot, i, coef, intercept = update_blin_coef(
+                        pivot,
+                        pre_pivot,
+                        num,
+                        Moments,
+                        XtX,
+                        XtY,
+                        possible_p,
+                        p,
+                        lenp,
+                        min_unique_values_regression,
+                        min_sample_leaf,
+                        i,
+                        coef,
+                        intercept,
+                        ndups,
                     )
-                    XtY += np.array([[0.0], [0.0], [-xi * Moments[1, 3]]])
-
-                    # useless to check the first pivot or partition that
-                    # leads to less than min_sample_leaf samples
-                    if (
-                        pivot != possible_p[0]
-                        and p >= 1
-                        and lenp >= min_unique_values_regression
-                        and np.linalg.det(XtX) > 0.001
-                        and num[0] + X_add.shape[0] >= min_sample_leaf
-                        and num[1] - X_add.shape[0] >= min_sample_leaf
-                    ):
-                        coefs = np.linalg.solve(XtX, XtY).flatten()
-                        coef[i, :] = np.array([coefs[1], coefs[1] + coefs[2]])
-                        intercept[i, :] = np.array([coefs[0], coefs[0] - coefs[2] * pivot])
-                    i += 1  # we add a dimension to the coef and intercept arrays
-                    pre_pivot = pivot
 
                 # update num after blin is fitted
-                num, Moments = update_moments(num, X_add, y_add, Moments)
+                num, Moments = update_moments(num, pivot, y_add, Moments, ndups)
 
                 # negelect ineligable split
                 if num[0] < min_sample_leaf:
@@ -416,14 +478,7 @@ def best_split(
 
                 # compute the rss and loss of the above 3 methods
                 # The dimension rss is between 1 and 3 (depending on the regression_nodes)
-                rss = (
-                    Moments[:, 4]
-                    + (num * intercept**2)
-                    + (2 * coef * intercept * Moments[:, 0])
-                    + coef**2 * Moments[:, 1]
-                    - 2 * intercept * Moments[:, 3]
-                    - 2 * coef * Moments[:, 2]
-                ).sum(axis=1)
+                rss = calculate_rss(num, Moments, coef, intercept)
 
                 # if no fit is done, continue
                 if np.isnan(rss).all():
@@ -550,6 +605,7 @@ class PILOT(BaseEstimator):
         df_settings: dict[str, int] | None = None,
         regression_nodes: list[str] | None = None,
         min_unique_values_regression: float = 5,
+        max_nodes: int | None = None,
     ) -> None:
         """
         Here we input model parameters to build a tree,
@@ -595,6 +651,7 @@ class PILOT(BaseEstimator):
         self.truncation_factor = truncation_factor
         self.rel_tolerance = rel_tolerance
         self.min_unique_values_regression = min_unique_values_regression
+        self.max_nodes = max_nodes
 
         # attributes used for fitting
         self.X = None
@@ -626,10 +683,15 @@ class PILOT(BaseEstimator):
         self.k = {k: np.array([v], dtype=np.int64) for k, v in self.k.items()}
         self.k_con = self.k["con"]
         self.k_lin = self.k["lin"]
-        self.k_split_nodes = np.concatenate(
-            [self.k[node] for node in self.regression_nodes if node in ["blin", "pcon", "plin"]]
+        self.k_split_nodes = (
+            np.concatenate(
+                [self.k[node] for node in self.regression_nodes if node in ["blin", "pcon", "plin"]]
+            )
+            if {"blin", "pcon", "plin"}.intersection(self.regression_nodes)
+            else np.array([])
         )
         self.k_pconc = self.k["pconc"]
+        self.df_settings = df_settings
 
     def stop_criterion(self, tree_depth, y):
         """
@@ -709,7 +771,9 @@ class PILOT(BaseEstimator):
         self.tree_depth = max(self.tree_depth, tree_depth)
 
         # build tree only if it doesn't meet the stop_criterion
-        if self.stop_criterion(tree_depth, self.y[indices]):
+        if self.stop_criterion(tree_depth, self.y[indices]) and (
+            (self.max_nodes is None) or (self.max_nodes > sum(self.recursion_counter.values()))
+        ):
             # define a new node
             # best_feature should - 1 because the 1st column is the indices
             node = tree(

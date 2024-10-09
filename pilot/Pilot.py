@@ -538,6 +538,7 @@ class PILOT(BaseEstimator):
         df_settings: dict[str, int] | None = None,
         regression_nodes: list[str] | None = None,
         min_unique_values_regression: float = 5,
+        max_nodes: int | None = None,
     ) -> None:
         """
         Here we input model parameters to build a tree,
@@ -570,6 +571,8 @@ class PILOT(BaseEstimator):
             Mapping from regression node type to the number of degrees of freedom for that node type.
         regression_nodes:
             List of node types to consider for numerical features. If None, all available regression nodes are considered
+        max_nodes:
+            Similar to max_depth, but also considering `lin` and `con` nodes. If None, max_nodes is set to max_depth.
         """
 
         # initialize class attributes
@@ -583,6 +586,7 @@ class PILOT(BaseEstimator):
         self.truncation_factor = truncation_factor
         self.rel_tolerance = rel_tolerance
         self.min_unique_values_regression = min_unique_values_regression
+        self.max_nodes = max_nodes
 
         # attributes used for fitting
         self.X = None
@@ -614,8 +618,12 @@ class PILOT(BaseEstimator):
         self.k = {k: np.array([v], dtype=np.int64) for k, v in self.k.items()}
         self.k_con = self.k["con"]
         self.k_lin = self.k["lin"]
-        self.k_split_nodes = np.concatenate(
-            [self.k[node] for node in self.regression_nodes if node in ["blin", "pcon", "plin"]]
+        self.k_split_nodes = (
+            np.concatenate(
+                [self.k[node] for node in self.regression_nodes if node in ["blin", "pcon", "plin"]]
+            )
+            if len({"blin", "pcon", "plin"}.intersection(self.regression_nodes)) > 0
+            else np.array([], dtype=np.int64)
         )
         self.k_pconc = self.k["pconc"]
 
@@ -638,9 +646,7 @@ class PILOT(BaseEstimator):
             whether to stop the recursion.
 
         """
-        if tree_depth >= self.max_depth or y.shape[0] <= self.min_sample_split:
-            return False
-        return True
+        return (tree_depth < self.max_depth) and (y.shape[0] > self.min_sample_split)
 
     def build_tree(self, tree_depth, indices, rss):
         """
@@ -667,7 +673,6 @@ class PILOT(BaseEstimator):
             return end node (denoted by 'END').
 
         """
-
         tree_depth += 1
         # fit models on the node
         best_feature, best_pivot, best_node, lm_l, lm_r, interval, pivot_c = best_split(
@@ -697,7 +702,9 @@ class PILOT(BaseEstimator):
         self.tree_depth = max(self.tree_depth, tree_depth)
 
         # build tree only if it doesn't meet the stop_criterion
-        if self.stop_criterion(tree_depth, self.y[indices]):
+        if self.stop_criterion(tree_depth, self.y[indices]) and (
+            (self.max_nodes is None) or (self.max_nodes > sum(self.recursion_counter.values()))
+        ):
             # define a new node
             # best_feature should - 1 because the 1st column is the indices
             node = tree(
