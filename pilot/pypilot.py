@@ -1,10 +1,10 @@
 """ This module implements PILOT"""
 
-import warnings
 import numpy as np
 import pandas as pd
 
-from typing import Optional
+from dataclasses import dataclass
+from typing import Literal, Optional
 from .Tree import tree
 
 
@@ -13,6 +13,103 @@ from sklearn.base import BaseEstimator
 REGRESSION_NODES = ["con", "lin", "blin", "pcon", "plin"]
 NODE_PREFERENCE_ORDER = REGRESSION_NODES + ["pconc"]
 DEFAULT_DF_SETTINGS = {"con": 1, "lin": 2, "blin": 5, "pcon": 5, "plin": 7, "pconc": 5}
+
+
+@dataclass
+class Moments:
+    sum_x_L: float = 0
+    sum_x2_L: float = 0
+    sum_y_L: float = 0
+    sum_y2_L: float = 0
+    sum_xy_L: float = 0
+
+    sum_x_R: float = 0
+    sum_x2_R: float = 0
+    sum_y_R: float = 0
+    sum_y2_R: float = 0
+    sum_xy_R: float = 0
+
+    num_L: int = 0
+    num_R: int = 0
+
+    @property
+    def num_total(self) -> int:
+        return self.num_L + self.num_R
+
+    @property
+    def num(self) -> np.ndarray:
+        return np.array([self.num_L, self.num_R])
+
+    @property
+    def sum_x(self) -> float:
+        return self.sum_x_L + self.sum_x_R
+
+    @property
+    def x(self) -> np.ndarray:
+        return np.array([self.sum_x_L, self.sum_x_R])
+
+    @property
+    def sum_x2(self) -> float:
+        return self.sum_x2_L + self.sum_x2_R
+
+    @property
+    def x2(self) -> np.ndarray:
+        return np.array([self.sum_x2_L, self.sum_x2_R])
+
+    @property
+    def sum_y(self) -> float:
+        return self.sum_y_L + self.sum_y_R
+
+    @property
+    def y(self) -> np.ndarray:
+        return np.array([self.sum_y_L, self.sum_y_R])
+
+    @property
+    def sum_y2(self) -> float:
+        return self.sum_y2_L + self.sum_y2_R
+
+    @property
+    def y2(self) -> np.ndarray:
+        return np.array([self.sum_y2_L, self.sum_y2_R])
+
+    @property
+    def sum_xy(self):
+        return self.sum_xy_L + self.sum_xy_R
+
+    @property
+    def xy(self) -> np.ndarray:
+        return np.array([self.sum_xy_L, self.sum_xy_R])
+
+    @property
+    def matrix(self) -> np.ndarray:
+        return np.array(
+            [
+                [self.sum_x_L, self.sum_x2_L, self.sum_xy_L, self.sum_y_L, self.sum_y2_L],
+                [self.sum_x_R, self.sum_x2_R, self.sum_xy_R, self.sum_y_R, self.sum_y2_R],
+            ]
+        )
+
+    def update(self, pivot, y_add, ndups):
+        xdiff = pivot * ndups
+        x2diff = xdiff * pivot
+        ydiff = np.sum(y_add)
+        y2diff = np.sum(y_add**2)
+        xydiff = np.sum(pivot * ydiff)
+
+        self.num_L += ndups
+        self.num_R -= ndups
+
+        self.sum_x_L += xdiff
+        self.sum_x2_L += x2diff
+        self.sum_y_L += ydiff
+        self.sum_y2_L += y2diff
+        self.sum_xy_L += xydiff
+
+        self.sum_x_R -= xdiff
+        self.sum_x2_R -= x2diff
+        self.sum_y_R -= ydiff
+        self.sum_y2_R -= y2diff
+        self.sum_xy_R -= xydiff
 
 
 def random_sample(a, k):
@@ -35,7 +132,7 @@ def isin(a, b):
     return np.isin(a, b)
 
 
-def loss_fun(criteria, num, Rss, k: np.ndarray):
+def loss_fun(criteria: Literal["AIC", "AICc", "BIC"], num: int, Rss: np.ndarray, k: np.ndarray):
     """
     This function is used to compute the information criteria
 
@@ -61,13 +158,15 @@ def loss_fun(criteria, num, Rss, k: np.ndarray):
         return num * np.log(Rss / num) + 2 * k + (2 * k**2 + 2 * k) / (num - k - 1)
     elif criteria == "BIC":
         return num * np.log(Rss / num) + np.log(num) * k
-    return np.array([0.0])
+    else:
+        raise ValueError(
+            f"The criteria {criteria} is not supported, must be one of 'AIC', 'AICc', 'BIC'"
+        )
 
 
 def process_con(
-    Moments,
-    num,
-    split_criterion,
+    moments: Moments,
+    split_criterion: Literal["AIC", "AICc", "BIC"],
     k_con,
     best_node,
     best_loss,
@@ -77,13 +176,15 @@ def process_con(
     lm_L,
     possible_p,
 ):
-    intercept_con = Moments[1, 3] / num[1]
+    intercept_con = moments.sum_y_R / moments.num_R
     coef_con = 0
     # compute the RSS and the loss according to the information criterion
-    rss = Moments[1, 4] + (num[1] * intercept_con**2) - 2 * intercept_con * Moments[1, 3]
+    rss = (
+        moments.sum_y2_R + (moments.num_R * intercept_con**2) - 2 * intercept_con * moments.sum_y_R
+    )
     loss = loss_fun(
         criteria=split_criterion,
-        num=num[1],
+        num=moments.num_R,
         Rss=np.array([rss]),
         k=k_con,
     )
@@ -98,9 +199,8 @@ def process_con(
 
 
 def process_lin(
-    Moments,
-    num,
-    split_criterion,
+    moments: Moments,
+    split_criterion: Literal["AIC", "AICc", "BIC"],
     k_lin,
     best_loss,
     feature_id,
@@ -110,25 +210,25 @@ def process_lin(
     interval,
     lm_L,
 ):
-    var = num[1] * Moments[1, 1] - Moments[1, 0] ** 2
+    var = moments.num_R * moments.sum_x2_R - moments.sum_x_R**2
     # in case a constant feature
     if var == 0:
         coef_lin = 0
     else:
-        coef_lin = (num[1] * Moments[1, 2] - Moments[1, 0] * Moments[1, 3]) / var
-    intercept_lin = (Moments[1, 3] - coef_lin * Moments[1, 0]) / num[1]
+        coef_lin = (moments.num_R * moments.sum_xy_R - moments.sum_x_R * moments.sum_y_R) / var
+    intercept_lin = (moments.sum_y_R - coef_lin * moments.sum_x_R) / moments.num_R
     # compute the RSS and the loss according to the information criterion
     rss = (
-        Moments[1, 4]
-        + (num[1] * intercept_lin**2)
-        + (2 * coef_lin * intercept_lin * Moments[1, 0])
-        + coef_lin**2 * Moments[1, 1]
-        - 2 * intercept_lin * Moments[1, 3]
-        - 2 * coef_lin * Moments[1, 2]
+        moments.sum_y2_R
+        + (moments.num_R * intercept_lin**2)
+        + (2 * coef_lin * intercept_lin * moments.sum_x_R)
+        + coef_lin**2 * moments.sum_x2_R
+        - 2 * intercept_lin * moments.sum_y_R
+        - 2 * coef_lin * moments.sum_xy_R
     )
     loss = loss_fun(
         criteria=split_criterion,
-        num=num[1],
+        num=moments.num_R,
         Rss=np.array([rss]),
         k=k_lin,
     )
@@ -142,19 +242,19 @@ def process_lin(
     return loss, best_loss, best_node, best_feature, interval, lm_L
 
 
-def preprocess_blin(num, Moments):
+def preprocess_blin(moments: Moments):
     XtX = np.array(
         [
             [
-                np.float64(num.sum()),
-                Moments[:, 0].sum(),
-                Moments[:, 0].sum(),
+                np.float64(moments.num_total),
+                moments.sum_x,
+                moments.sum_x,
             ],
-            [Moments[:, 0].sum(), Moments[:, 1].sum(), Moments[:, 1].sum()],
-            [Moments[:, 0].sum(), Moments[:, 1].sum(), Moments[:, 1].sum()],
+            [moments.sum_x, moments.sum_x2, moments.sum_x2],
+            [moments.sum_x, moments.sum_x2, moments.sum_x2],
         ]
     )
-    XtY = np.array([[Moments[1, 3]], [Moments[1, 2]], [Moments[1, 2]]])
+    XtY = np.array([[moments.sum_y_R], [moments.sum_xy_R], [moments.sum_xy_R]])
     pre_pivot = 0.0
     return XtX, XtY, pre_pivot
 
@@ -169,8 +269,7 @@ def get_sorted_X_y(sorted_X_indices, feature_id, index, X, y):
 def update_blin_coef(
     pivot,
     pre_pivot,
-    num,
-    Moments,
+    moments: Moments,
     XtX,
     XtY,
     possible_p,
@@ -189,16 +288,16 @@ def update_blin_coef(
     # update XtX and XtY
     XtX += np.array(
         [
-            [0.0, 0.0, -xi * num[1]],
-            [0.0, 0.0, -xi * Moments[1, 0]],
+            [0.0, 0.0, -xi * moments.num_R],
+            [0.0, 0.0, -xi * moments.sum_x_R],
             [
-                -xi * num[1],
-                -xi * Moments[1, 0],
-                xi**2 * num[1] - 2 * xi * XtX[0, 2],
+                -xi * moments.num_R,
+                -xi * moments.sum_x_R,
+                xi**2 * moments.num_R - 2 * xi * XtX[0, 2],
             ],
         ]
     )
-    XtY += np.array([[0.0], [0.0], [-xi * Moments[1, 3]]])
+    XtY += np.array([[0.0], [0.0], [-xi * moments.sum_y_R]])
 
     # useless to check the first pivot or partition that
     # leads to less than min_sample_leaf samples
@@ -207,8 +306,8 @@ def update_blin_coef(
         and p >= 1
         and lenp >= min_unique_values_regression
         and np.linalg.det(XtX) > 0.001
-        and num[0] + ndups >= min_sample_leaf
-        and num[1] - ndups >= min_sample_leaf
+        and moments.num_L + ndups >= min_sample_leaf
+        and moments.num_R - ndups >= min_sample_leaf
     ):
         coefs = np.linalg.solve(XtX, XtY).flatten()
         coef[i, :] = np.array([coefs[1], coefs[1] + coefs[2]])
@@ -219,32 +318,26 @@ def update_blin_coef(
     return xi, XtX, XtY, pre_pivot, i, coef, intercept
 
 
-def calculate_rss(num, Moments, coef, intercept):
-    return (
-        Moments[:, 4]
-        + (num * intercept**2)
-        + (2 * coef * intercept * Moments[:, 0])
-        + coef**2 * Moments[:, 1]
-        - 2 * intercept * Moments[:, 3]
-        - 2 * coef * Moments[:, 2]
-    ).sum(axis=1)
-
-
-def update_moments(num, pivot, y_add, Moments, ndups):
-    num += np.array([1, -1]) * ndups
-
-    # first update moments then check if this pivot is eligable for a pcon/plin split
-    Moments_add = np.array(
-        [
-            pivot,
-            pivot**2,
-            np.sum(pivot * y_add),
-            np.sum(y_add),
-            np.sum(y_add**2),
-        ]
+def calculate_rss(moments: Moments, coef: np.ndarray, intercept: np.ndarray) -> np.ndarray:
+    coef_L, coef_R = coef[:, 0], coef[:, 1]
+    intercept_L, intercept_R = intercept[:, 0], intercept[:, 1]
+    left = (
+        moments.sum_y2_L
+        + (moments.num_L * intercept_L**2)
+        + (2 * coef_L * intercept_L * moments.sum_x_L)
+        + (coef_L**2 * moments.sum_x2_L)
+        - 2 * intercept_L * moments.sum_y_L
+        - 2 * coef_L * moments.sum_xy_L
     )
-    Moments += Moments_add * np.array([[1.0], [-1.0]])
-    return num, Moments
+    right = (
+        moments.sum_y2_R
+        + (moments.num_R * intercept_R**2)
+        + (2 * coef_R * intercept_R * moments.sum_x_R)
+        + (coef_R**2 * moments.sum_x2_R)
+        - 2 * intercept_R * moments.sum_y_R
+        - 2 * coef_R * moments.sum_xy_R
+    )
+    return left + right
 
 
 def best_split(
@@ -355,27 +448,20 @@ def best_split(
         lenp = len(possible_p)
 
         if feature_id - 1 not in categorical:
-            num = np.array([0, X_sorted.shape[0]])
-
             # store entries of the Gram and moment matrices
-            Moments = np.array(
-                [
-                    [0.0, 0.0, 0.0, 0.0, 0.0],
-                    [
-                        np.sum(X_sorted[:, feature_id]),
-                        np.sum(X_sorted[:, feature_id] ** 2),
-                        np.sum(X_sorted[:, feature_id].copy().reshape(-1, 1) * y_sorted),
-                        np.sum(y_sorted),
-                        np.sum(y_sorted**2),
-                    ],
-                ]
+            moments = Moments(
+                num_R=len(X_sorted),
+                sum_x_R=np.sum(X_sorted[:, feature_id]),
+                sum_x2_R=np.sum(X_sorted[:, feature_id] ** 2),
+                sum_y_R=np.sum(y_sorted),
+                sum_y2_R=np.sum(y_sorted**2),
+                sum_xy_R=np.sum(X_sorted[:, feature_id] * y_sorted.flatten()),
             )
 
             # CON:
             if "con" in regression_nodes:
                 loss, best_node, best_loss, best_feature, interval, lm_L = process_con(
-                    Moments,
-                    num,
+                    moments,
                     split_criterion,
                     k_con,
                     best_node,
@@ -390,8 +476,7 @@ def best_split(
             # LIN:
             if "lin" in regression_nodes and lenp >= min_unique_values_regression:
                 loss, best_loss, best_node, best_feature, interval, lm_L = process_lin(
-                    Moments,
-                    num,
+                    moments,
                     split_criterion,
                     k_lin,
                     best_loss,
@@ -407,7 +492,7 @@ def best_split(
             if "blin" in regression_nodes:
                 # Moments need to be updated for blin:
                 # [sum(x-xi)+, sum[(x-xi)+]**2, sum[x(x-xi)+], sum[y(x-xi)+]]
-                XtX, XtY, pre_pivot = preprocess_blin(num, Moments)
+                XtX, XtY, pre_pivot = preprocess_blin(moments)
 
             if len({"blin", "pcon", "plin"}.intersection(regression_nodes)) == 0:
                 continue
@@ -428,8 +513,7 @@ def best_split(
                     xi, XtX, XtY, pre_pivot, i, coef, intercept = update_blin_coef(
                         pivot,
                         pre_pivot,
-                        num,
-                        Moments,
+                        moments,
                         XtX,
                         XtY,
                         possible_p,
@@ -444,18 +528,20 @@ def best_split(
                     )
 
                 # update num after blin is fitted
-                num, Moments = update_moments(num, pivot, y_add, Moments, ndups)
+                moments.update(pivot, y_add, ndups)
 
                 # negelect ineligable split
-                if num[0] < min_sample_leaf:
+                if moments.num_L < min_sample_leaf:
                     continue
-                elif num[1] < min_sample_leaf:
+                elif moments.num_R < min_sample_leaf:
                     break
 
                 # 'pcon' fit
                 if "pcon" in regression_nodes:
                     coef[i, :] = np.array([0, 0])
-                    intercept[i, :] = (Moments[:, 3]) / num
+                    intercept[i, :] = np.array(
+                        [moments.sum_y_L / moments.num_L, moments.sum_y_R / moments.num_R]
+                    )
                     i += 1  # we add a dimension to the coef and intercept arrays
 
                 # 'plin' for the first split candidate is equivalent to 'pcon'
@@ -466,19 +552,23 @@ def best_split(
                     - 1  # number of unique values smaller than current value
                     and lenp - p
                     >= min_unique_values_regression  # number of unique values larger than current value
-                    and 0 not in num * Moments[:, 1] - Moments[:, 0] ** 2
+                    and 0
+                    not in [
+                        (moments.num_L * moments.sum_x2_L - moments.sum_x_L**2),
+                        (moments.num_R * moments.sum_x2_R - moments.sum_x_R**2),
+                    ]
                 ):
                     # coef and intercept are vectors of dimension 1
                     # have to reshape X column in order to get correct cross product
                     # the intercept should be divided by the total number of samples
-                    coef[i, :] = (num * Moments[:, 2] - Moments[:, 0] * Moments[:, 3]) / (
-                        num * Moments[:, 1] - Moments[:, 0] ** 2
+                    coef[i, :] = (moments.num * moments.xy - moments.x * moments.y) / (
+                        moments.num * moments.x2 - moments.x**2
                     )
-                    intercept[i, :] = (Moments[:, 3] - coef[i, :] * Moments[:, 0]) / num
+                    intercept[i, :] = (moments.y - coef[i, :] * moments.x) / moments.num
 
                 # compute the rss and loss of the above 3 methods
                 # The dimension rss is between 1 and 3 (depending on the regression_nodes)
-                rss = calculate_rss(num, Moments, coef, intercept)
+                rss = calculate_rss(moments, coef, intercept)
 
                 # if no fit is done, continue
                 if np.isnan(rss).all():
@@ -488,7 +578,7 @@ def best_split(
                 rss = np.maximum(10**-8, rss)
                 loss = loss_fun(
                     criteria=split_criterion,
-                    num=num.sum(),
+                    num=moments.num_total,
                     Rss=rss,
                     k=k_split_nodes,
                 )
