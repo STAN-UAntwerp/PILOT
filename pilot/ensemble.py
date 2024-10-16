@@ -10,6 +10,7 @@ class RandomForestPilot(BaseEstimator):
         self,
         n_estimators: int = 10,
         max_depth: int = 12,
+        max_model_depth: int = 100,
         split_criterion: str = "BIC",
         min_sample_split: int = 10,
         min_sample_leaf: int = 5,
@@ -24,6 +25,7 @@ class RandomForestPilot(BaseEstimator):
     ):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
+        self.max_model_depth = max_model_depth
         self.split_criterion = split_criterion
         self.min_sample_split = min_sample_split
         self.min_sample_leaf = min_sample_leaf
@@ -40,6 +42,7 @@ class RandomForestPilot(BaseEstimator):
         self.estimators = [
             Pilot.PILOT(
                 max_depth=self.max_depth,
+                max_model_depth=self.max_model_depth,
                 split_criterion=self.split_criterion,
                 min_sample_split=self.min_sample_split,
                 min_sample_leaf=self.min_sample_leaf,
@@ -99,6 +102,6 @@ def _fit_single_estimator(estimator, X, y, categorical_idx, n_features):
             max_features_considered=n_features,
         )
         return estimator
-    except Exception as e:
+    except ValueError as e:
         print(e)
         return None

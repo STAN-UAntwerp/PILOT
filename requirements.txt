@@ -1,3 +1,9 @@
 numba==0.55.1
 numpy==1.21.2
 pandas==1.4.1
+ucimlrepo
+xgboost
+scikit-learn
+networkx==3.4.1
+matplotlib=3.8
+retry 
