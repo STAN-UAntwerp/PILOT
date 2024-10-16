@@ -45,6 +45,7 @@ class tree(object):
         lm_r=None,
         Rt=None,
         depth=None,
+        model_depth=None,
         interval=None,
         pivot_c=None,
     ) -> None:
@@ -69,6 +70,8 @@ class tree(object):
             a real number indicating the rss in the present node.
         depth: int,
             the depth of the current node/subtree
+        model_depth: int
+            the depth of the current node/subtree including linear nodes
         interval: ndarray,
             1D float array for the range of the selected predictor in the training data
         pivot_c: ndarry,
@@ -83,6 +86,7 @@ class tree(object):
         self.lm_l = lm_l
         self.lm_r = lm_r
         self.depth = depth
+        self.model_depth = model_depth
         self.interval = interval
         self.pivot_c = pivot_c
 

@@ -486,6 +486,8 @@ class PILOT(BaseEstimator):
     -----------
     max_depth: int,
         the max depth allowed to grow in a tree.
+    max_model_depth: int
+            the maximum depth including linear nodes
     split_criterion: str,
         the criterion to split the tree,
         we have 'AIC'/'AICc'/'BIC'/'adjusted R^2', etc.
@@ -520,6 +522,7 @@ class PILOT(BaseEstimator):
     def __init__(
         self,
         max_depth=12,
+        max_model_depth=100,
         split_criterion="BIC",
         min_sample_split=10,
         min_sample_leaf=5,
@@ -538,6 +541,8 @@ class PILOT(BaseEstimator):
         -----------
         max_depth: int,
             the max depth allowed to grow in a tree.
+        max_model_depth: int
+            the maximum depth including linear nodes
         split_criterion: str,
             the criterion to split the tree,
             we have 'AIC'/'AICc'/'BIC'/'adjusted R^2', etc.
@@ -565,6 +570,7 @@ class PILOT(BaseEstimator):
 
         # initialize class attributes
         self.max_depth = max_depth
+        self.max_model_depth = max_model_depth
         self.split_criterion = split_criterion
         self.regression_nodes = REGRESSION_NODES if regression_nodes is None else regression_nodes
         self.min_sample_split = min_sample_split
@@ -589,6 +595,7 @@ class PILOT(BaseEstimator):
         self.B2 = None
         self.recursion_counter = {"lin": 0, "blin": 0, "pcon": 0, "plin": 0, "pconc": 0}
         self.tree_depth = 0
+        self.model_depth = 0
 
         # order of preference for regression nodes
         # this cannot be changed as best split relies on this specific order
@@ -610,7 +617,7 @@ class PILOT(BaseEstimator):
         )
         self.k_pconc = self.k["pconc"]
 
-    def stop_criterion(self, tree_depth, y):
+    def stop_criterion(self, tree_depth, model_depth, y):
         """
         Stop splitting when either the tree has reached max_depth or the number of the
         data in the leaf node is less than min_sample_leaf or the variance of the node
@@ -626,11 +633,15 @@ class PILOT(BaseEstimator):
         boolean:
             whether to stop the recursion.
         """
-        if tree_depth >= self.max_depth or y.shape[0] <= self.min_sample_split:
+        if (
+            (tree_depth >= self.max_depth)
+            or (model_depth >= self.max_model_depth)
+            or (y.shape[0] <= self.min_sample_split)
+        ):
             return False
         return True
 
-    def build_tree(self, tree_depth, indices, rss):
+    def build_tree(self, tree_depth, model_depth, indices, rss):
         """
         This function is based on the recursive algorithm. We keep
         growing the tree, until it meets the stopping criterion.
@@ -654,6 +665,7 @@ class PILOT(BaseEstimator):
         """
 
         tree_depth += 1
+        model_depth += 1
         # fit models on the node
         best_feature, best_pivot, best_node, lm_l, lm_r, interval, pivot_c = best_split(
             indices,
@@ -680,9 +692,10 @@ class PILOT(BaseEstimator):
             tree_depth -= 1
 
         self.tree_depth = max(self.tree_depth, tree_depth)
+        self.model_depth = max(self.model_depth, model_depth)
 
         # build tree only if it doesn't meet the stop_criterion
-        if self.stop_criterion(tree_depth, self.y[indices]):
+        if self.stop_criterion(tree_depth=tree_depth, model_depth=model_depth, y=self.y[indices]):
             # define a new node
             # best_feature should - 1 because the 1st column is the indices
             node = tree(
@@ -692,6 +705,7 @@ class PILOT(BaseEstimator):
                 lm_r,
                 Rt=rss,
                 depth=tree_depth + 1,
+                model_depth=model_depth + 1,
                 interval=interval,
                 pivot_c=pivot_c,
             )
@@ -717,9 +731,12 @@ class PILOT(BaseEstimator):
                     self.recursion_counter[best_node] += 1
                     # recursion
                     node.left = self.build_tree(
-                        tree_depth,
-                        indices,
-                        np.maximum(0, np.sum((self.y[indices] - np.mean(self.y[indices])) ** 2)),
+                        tree_depth=tree_depth,
+                        model_depth=model_depth,
+                        indices=indices,
+                        rss=np.maximum(
+                            0, np.sum((self.y[indices] - np.mean(self.y[indices])) ** 2)
+                        ),
                     )
 
             elif best_node == "con":
@@ -758,18 +775,20 @@ class PILOT(BaseEstimator):
                 try:
                     self.recursion_counter[best_node] += 1
                     node.left = self.build_tree(
-                        tree_depth,
-                        indices_left,
-                        np.maximum(
+                        tree_depth=tree_depth,
+                        model_depth=model_depth,
+                        indices=indices_left,
+                        rss=np.maximum(
                             0,
                             np.sum((self.y[indices_left] - np.mean(self.y[indices_left])) ** 2),
                         ),
                     )
 
                     node.right = self.build_tree(
-                        tree_depth,
-                        indices_right,
-                        np.maximum(
+                        tree_depth=tree_depth,
+                        model_depth=model_depth,
+                        indices=indices_right,
+                        rss=np.maximum(
                             0,
                             np.sum((self.y[indices_right] - np.mean(self.y[indices_right])) ** 2),
                         ),
@@ -854,7 +873,12 @@ class PILOT(BaseEstimator):
         self.B2 = y.min() - padding  # compute the lower bound for the second truncation
 
         # build the tree, only need to take in the indices for X
-        self.model_tree = self.build_tree(-1, self.sorted_X_indices[0], np.sum((y - y.mean()) ** 2))
+        self.model_tree = self.build_tree(
+            tree_depth=-1,
+            model_depth=-1,
+            indices=self.sorted_X_indices[0],
+            rss=np.sum((y - y.mean()) ** 2),
+        )
 
         # if the first node is 'con'
         if self.model_tree.node == "END":
