@@ -89,13 +89,14 @@ def load_data(repo_id: int) -> Dataset:
     pd.options.mode.use_inf_as_na = True
     rows_removed = 0
     cols_removed = 0
-    if X.isna().any().any():
+    if X.isna().any().any() or y.isna().any():
         n_before = len(X)
         cols_to_remove = X.columns[X.isna().mean() > 0.5]
         X = X.drop(columns=cols_to_remove)
-        X = X.dropna(how="any")
+        rows_to_remove = X.index[X.isna().any(axis=1) | y.isna()]
+        X = X.drop(index=rows_to_remove)
         y = y.loc[X.index]
-        rows_removed = n_before - len(X)
+        rows_removed = len(rows_to_remove)
         cols_removed = len(cols_to_remove)
         print(
             f"Removed {rows_removed} rows and {cols_removed} columns with missing values. "

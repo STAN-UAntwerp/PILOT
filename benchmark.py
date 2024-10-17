@@ -13,8 +13,15 @@ print(f"Results will be stored in {experiment_file}")
 np.random.seed(42)
 cv = KFold(n_splits=5, shuffle=True, random_state=42)
 
-results = []
-for repo_id in UCI_DATASET_IDS:
+if experiment_file.exists():
+    results = pd.read_csv(experiment_file)
+    processed_repo_ids = results["id"].unique()
+    results = results.to_dict("records")
+else:
+    results = []
+
+repo_ids_to_process = [repo_id for repo_id in UCI_DATASET_IDS if repo_id not in processed_repo_ids]
+for repo_id in repo_ids_to_process:
     print(repo_id)
     dataset = load_data(repo_id)
     for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
