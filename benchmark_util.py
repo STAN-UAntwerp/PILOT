@@ -35,10 +35,10 @@ class Dataset:
         return Dataset(
             self.id,
             self.name,
-            self.X.iloc[idx, :],
-            self.X_oh_encoded.iloc[idx, :],
-            self.X_label_encoded.iloc[idx, :],
-            self.y.iloc[idx],
+            self.X.iloc[idx, :].copy(),
+            self.X_oh_encoded.iloc[idx, :].copy(),
+            self.X_label_encoded.iloc[idx, :].copy(),
+            self.y.iloc[idx].copy(),
             self.cat_ids,
             self.cat_names,
             self.oh_encoder,
@@ -81,16 +81,21 @@ class FitResult:
 
 
 @retry(ConnectionError, tries=3, delay=10)
-def load_data(repo_id: int) -> Dataset:
+def load_data(repo_id: int, ignore_feat: list[str] | None = None) -> Dataset:
     data = fetch_ucirepo(id=repo_id)
+    variables = data.variables.set_index("name")
     X = data.data.features
+    date_cols = [c for c in X.columns if (variables.loc[c, "type"] == "Date")]
+    ignore_feat = ignore_feat + date_cols if ignore_feat is not None else date_cols
+    if len(ignore_feat) > 0:
+        print(f"Dropping features: {ignore_feat}")
+        X = X.drop(columns=ignore_feat)
     X = X.replace("?", np.nan)
     y = data.data.targets.iloc[:, 0].astype(np.float64)
     pd.options.mode.use_inf_as_na = True
     rows_removed = 0
     cols_removed = 0
     if X.isna().any().any() or y.isna().any():
-        n_before = len(X)
         cols_to_remove = X.columns[X.isna().mean() > 0.5]
         X = X.drop(columns=cols_to_remove)
         rows_to_remove = X.index[X.isna().any(axis=1) | y.isna()]
@@ -104,7 +109,6 @@ def load_data(repo_id: int) -> Dataset:
         )
     pd.options.mode.use_inf_as_na = False
 
-    variables = data.variables.set_index("name")
     cat_ids = [
         i
         for i, c in enumerate(X.columns)
@@ -158,9 +162,9 @@ def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
     return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
-def fit_pilot(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
+def fit_pilot(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
     t1 = time.time()
-    model = PILOT(max_depth=20, max_model_depth=100, rel_tolerance=1e-3)
+    model = PILOT(**init_kwargs)
     model.fit(
         train_dataset.X_label_encoded.values,
         train_dataset.y.values,
@@ -173,9 +177,9 @@ def fit_pilot(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
     return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
-def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
+def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
     t1 = time.time()
-    model = RandomForestRegressor()
+    model = RandomForestRegressor(**init_kwargs)
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
     t2 = time.time()
     y_pred = model.predict(test_dataset.X_oh_encoded)
@@ -184,9 +188,9 @@ def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset) -> FitResul
     return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
-def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
+def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
     t1 = time.time()
-    model = RandomForestPilot(max_depth=20, max_model_depth=50, rel_tolerance=1e-2)
+    model = RandomForestPilot(**init_kwargs)
     model.fit(
         train_dataset.X_label_encoded.values,
         train_dataset.y.values,
