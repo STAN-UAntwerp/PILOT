@@ -34,16 +34,52 @@ for repo_id in repo_ids_to_process:
         results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
 
         # PILOT
-        r = fit_pilot(train_dataset=train_dataset, test_dataset=test_dataset)
+        r = fit_pilot(
+            train_dataset=train_dataset,
+            test_dataset=test_dataset,
+            max_depth=20,
+            truncation_factor=1,
+            rel_tolerance=0.01,
+        )
         results.append(dict(**dataset.summary(), fold=i, model="PILOT", **r.asdict()))
 
+        r = fit_pilot(
+            train_dataset=train_dataset,
+            test_dataset=test_dataset,
+            max_depth=20,
+            truncation_factor=1,
+            rel_tolerance=0.01,
+            regression_nodes=["con", "lin", "pcon", "plin"],
+        )
+        results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
+
         # RF
-        r = fit_random_forest(train_dataset=train_dataset, test_dataset=test_dataset)
+        r = fit_random_forest(
+            train_dataset=train_dataset, test_dataset=test_dataset, n_estimators=100
+        )
         results.append(dict(**dataset.summary(), fold=i, model="RF", **r.asdict()))
 
         # PF
-        r = fit_pilot_forest(train_dataset=train_dataset, test_dataset=test_dataset)
+        r = fit_pilot_forest(
+            train_dataset=train_dataset,
+            test_dataset=test_dataset,
+            max_depth=20,
+            n_estimators=100,
+            truncation_factor=1,
+            rel_tolerance=0.01,
+        )
         results.append(dict(**dataset.summary(), fold=i, model="PF", **r.asdict()))
+
+        r = fit_pilot_forest(
+            train_dataset=train_dataset,
+            test_dataset=test_dataset,
+            max_depth=20,
+            n_estimators=100,
+            truncation_factor=1,
+            rel_tolerance=0.01,
+            regression_nodes=["con", "lin", "pcon", "plin"],
+        )
+        results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
 
         # XGB
         r = fit_xgboost(train_dataset=train_dataset, test_dataset=test_dataset)
