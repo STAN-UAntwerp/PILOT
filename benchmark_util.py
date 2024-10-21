@@ -80,7 +80,7 @@ class FitResult:
         return d
 
 
-@retry(ConnectionError, tries=3, delay=10)
+@retry(ConnectionError, tries=5, delay=10)
 def load_data(repo_id: int, ignore_feat: list[str] | None = None) -> Dataset:
     data = fetch_ucirepo(id=repo_id)
     variables = data.variables.set_index("name")
