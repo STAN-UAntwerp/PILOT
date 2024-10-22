@@ -1,5 +1,7 @@
 from __future__ import annotations
 import time
+import pathlib
+import joblib
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -81,7 +83,18 @@ class FitResult:
 
 
 @retry(ConnectionError, tries=5, delay=10)
-def load_data(repo_id: int, ignore_feat: list[str] | None = None) -> Dataset:
+def load_data(
+    repo_id: int, ignore_feat: list[str] | None = None, use_download: bool = True
+) -> Dataset:
+    if use_download:
+        path = pathlib.Path(__file__).parent.resolve() / "Data" / f"{repo_id}.pkl"
+        if path.exists():
+            print(f"Loading data from {path}")
+            dataset = joblib.load(path)
+            return dataset
+        else:
+            print(f"use_dowload was True, but path {path} does not exist. Trying to download.")
+
     data = fetch_ucirepo(id=repo_id)
     variables = data.variables.set_index("name")
     X = data.data.features
