@@ -1,4 +1,6 @@
 Data/*
-Output/*
+Output/**
+!Output/**/
+!Output/**/*.csv
 pyrightconfig.json
 *.pyc
