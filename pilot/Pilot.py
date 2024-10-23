@@ -1,6 +1,7 @@
 """ This module implements PILOT"""
 
 import warnings
+import uuid
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
 warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
@@ -982,6 +983,19 @@ class PILOT(BaseEstimator):
         """
         print_tree_inner_function(self.model_tree, level=level)
 
+    def get_model_summary(self, feature_names: list[str] | None = None) -> pd.DataFrame:
+        """
+        Get a summary table of the model tree
+        """
+        summary = []
+        tree_summary(self.model_tree, 0, "root", None, summary)
+        summary_df = pd.DataFrame(summary)
+        if feature_names is not None:
+            summary_df = summary_df.assign(
+                pivot_name=lambda x: x.pivot_idx.map(lambda y: feature_names[y])
+            )
+        return summary_df
+
     def _validate_X_predict(self, X, *args, **kwargs):
         return X
 
@@ -1010,3 +1024,29 @@ def print_tree_inner_function(model_tree: tree, level: int) -> None:
                 (round(model_tree.lm_r[0], 3), round(model_tree.lm_r[1], 3)),
             )
         print_tree_inner_function(model_tree.right, level + 1)
+
+
+def tree_summary(model_tree, level, tree_id, parent_id, summary):
+    if model_tree is not None:
+        if model_tree.pivot is not None:
+            pivot_idx = model_tree.pivot[0]
+            pivot_value = model_tree.pivot[1]
+        else:
+            pivot_idx = pivot_value = None
+        summary.append(
+            {
+                "tree_id": tree_id,
+                "parent_id": parent_id,
+                "level": level,
+                "node": model_tree.node,
+                "pivot_idx": pivot_idx,
+                "pivot_value": pivot_value,
+                "Rt": model_tree.Rt,
+                "lm_l": model_tree.lm_l,
+                "lm_r": model_tree.lm_r,
+            }
+        )
+        tree_summary(model_tree.left, level + 1, str(uuid.uuid4()).split("-")[-1], tree_id, summary)
+        tree_summary(
+            model_tree.right, level + 1, str(uuid.uuid4()).split("-")[-1], tree_id, summary
+        )
