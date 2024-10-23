@@ -59,3 +59,5 @@ UCI_DATASET_IDS = [
     # 925, # 2 targets
     # 942, # classification target
 ]
+
+IGNORE_COLUMNS = {183: ["state", "county", "community", "communityname", "fold"]}

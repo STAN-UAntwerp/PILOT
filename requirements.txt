@@ -8,3 +8,5 @@ networkx==3.4.1
 matplotlib==3.8
 retry 
 tbb
+dataframe_image
+click
