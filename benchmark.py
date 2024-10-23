@@ -4,7 +4,7 @@ import pandas as pd
 
 from sklearn.model_selection import KFold
 
-from benchmark_config import UCI_DATASET_IDS
+from benchmark_config import UCI_DATASET_IDS, IGNORE_COLUMNS
 from benchmark_util import *
 
 OUTPUTFOLDER = pathlib.Path(__file__).parent / "Output"
@@ -24,7 +24,7 @@ else:
 repo_ids_to_process = [repo_id for repo_id in UCI_DATASET_IDS if repo_id not in processed_repo_ids]
 for repo_id in repo_ids_to_process:
     print(repo_id)
-    dataset = load_data(repo_id)
+    dataset = load_data(repo_id, ignore_feat=IGNORE_COLUMNS.get(repo_id))
     for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
         print(f"\tFold {i} / 5")
         train_dataset = dataset.subset(train)

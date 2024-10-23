@@ -1,6 +1,7 @@
 import pathlib
 import pandas as pd
 import numpy as np
+import dataframe_image as dfi
 
 filename = "benchmark_results_v2"
 output_folder = pathlib.Path(__file__).parent.resolve() / "Output"
@@ -19,6 +20,7 @@ def highlight_max(s):
 
 scores = results.groupby(["id", "name", "model"])["r2"].mean().unstack()
 
-scores.style.apply(highlight_max, axis=1).format("{:.2f}").to_html(
-    output_folder / f"{filename}.html"
-)
+scores = scores.style.apply(highlight_max, axis=1).format("{:.2f}")
+
+scores.to_html(output_folder / f"{filename}.html")
+dfi.export(scores, output_folder / f"{filename}.png", table_conversion="matplotlib")
