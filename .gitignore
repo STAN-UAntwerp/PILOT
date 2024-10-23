@@ -1,6 +1,8 @@
 Data/*
 Output/**
 !Output/**/
+Output/profile_results
+Output/archive
 !Output/**/*.csv
 pyrightconfig.json
 *.pyc
