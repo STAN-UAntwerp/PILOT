@@ -14,8 +14,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from ucimlrepo import fetch_ucirepo
 
-from pilot.Pilot import PILOT
+from pilot import PILOT, CPILOT
 from pilot.ensemble import RandomForestPilot
+from pilot.c_ensemble import RandomForestCPilot
 
 
 @dataclass
@@ -190,6 +191,41 @@ def fit_pilot(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> F
     return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
+def fit_cpilot(
+    train_dataset: Dataset,
+    test_dataset: Dataset,
+    dfs=[1, 2, 5, 5, 7, 5],
+    min_sample_leaf=5,
+    min_sample_alpha=5,
+    min_sample_fit=5,
+    max_depth=20,
+    max_model_depth=100,
+    precision_scale=1e-10,
+) -> FitResult:
+    t1 = time.time()
+
+    model = CPILOT(
+        dfs,
+        min_sample_leaf,
+        min_sample_alpha,
+        min_sample_fit,
+        max_depth,
+        max_model_depth,
+        precision_scale,
+    )
+    catids = np.zeros(train_dataset.n_features, dtype=int)
+    if train_dataset.cat_ids:
+        catids[train_dataset.categorical] = 1
+    X = np.array(train_dataset.X_label_encoded.values, dtype=np.float64)
+    y = np.array(train_dataset.y.values, dtype=np.float64)
+    model.train(X, y, catids)
+    t2 = time.time()
+    y_pred = model.predict(test_dataset.X_label_encoded.values)
+    t3 = time.time()
+    r2 = float(r2_score(test_dataset.y, y_pred))
+    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+
+
 def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
     t1 = time.time()
     model = RandomForestRegressor(**init_kwargs)
@@ -204,6 +240,22 @@ def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwar
 def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
     t1 = time.time()
     model = RandomForestPilot(**init_kwargs)
+    model.fit(
+        train_dataset.X_label_encoded.values,
+        train_dataset.y.values,
+        categorical_idx=train_dataset.categorical,
+        n_workers=1,
+    )
+    t2 = time.time()
+    y_pred = model.predict(test_dataset.X_label_encoded.values)
+    t3 = time.time()
+    r2 = float(r2_score(test_dataset.y, y_pred))
+    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+
+
+def fit_cpilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+    t1 = time.time()
+    model = RandomForestCPilot(**init_kwargs)
     model.fit(
         train_dataset.X_label_encoded.values,
         train_dataset.y.values,

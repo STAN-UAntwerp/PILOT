@@ -44,25 +44,42 @@ def run_benchmark(experiment_name):
             r = fit_cart(train_dataset=train_dataset, test_dataset=test_dataset)
             results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
 
-            # PILOT
-            r = fit_pilot(
-                train_dataset=train_dataset,
-                test_dataset=test_dataset,
-                max_depth=20,
-                truncation_factor=1,
-                rel_tolerance=0.01,
-            )
-            results.append(dict(**dataset.summary(), fold=i, model="PILOT", **r.asdict()))
+            # # PILOT
+            # r = fit_pilot(
+            #     train_dataset=train_dataset,
+            #     test_dataset=test_dataset,
+            #     max_depth=20,
+            #     truncation_factor=1,
+            #     rel_tolerance=0.01,
+            # )
+            # results.append(dict(**dataset.summary(), fold=i, model="PILOT", **r.asdict()))
 
-            r = fit_pilot(
+            # r = fit_pilot(
+            #     train_dataset=train_dataset,
+            #     test_dataset=test_dataset,
+            #     max_depth=20,
+            #     truncation_factor=1,
+            #     rel_tolerance=0.01,
+            #     regression_nodes=["con", "lin", "pcon", "plin"],
+            # )
+            # results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
+
+            r = fit_cpilot(
                 train_dataset=train_dataset,
                 test_dataset=test_dataset,
                 max_depth=20,
-                truncation_factor=1,
-                rel_tolerance=0.01,
-                regression_nodes=["con", "lin", "pcon", "plin"],
             )
-            results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
+            results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
+
+            r = fit_cpilot(
+                train_dataset=train_dataset,
+                test_dataset=test_dataset,
+                max_depth=20,
+                dfs=[1, 2, 5, -1, 7, 5],
+            )
+            results.append(
+                dict(**dataset.summary(), fold=i, model="CPILOT - no blin", **r.asdict())
+            )
 
             # RF
             r = fit_random_forest(
@@ -70,27 +87,44 @@ def run_benchmark(experiment_name):
             )
             results.append(dict(**dataset.summary(), fold=i, model="RF", **r.asdict()))
 
-            # PF
-            r = fit_pilot_forest(
-                train_dataset=train_dataset,
-                test_dataset=test_dataset,
-                max_depth=20,
-                n_estimators=100,
-                truncation_factor=1,
-                rel_tolerance=0.01,
-            )
-            results.append(dict(**dataset.summary(), fold=i, model="PF", **r.asdict()))
+            # # PF
+            # r = fit_pilot_forest(
+            #     train_dataset=train_dataset,
+            #     test_dataset=test_dataset,
+            #     max_depth=20,
+            #     n_estimators=100,
+            #     truncation_factor=1,
+            #     rel_tolerance=0.01,
+            # )
+            # results.append(dict(**dataset.summary(), fold=i, model="PF", **r.asdict()))
 
-            r = fit_pilot_forest(
+            # r = fit_pilot_forest(
+            #     train_dataset=train_dataset,
+            #     test_dataset=test_dataset,
+            #     max_depth=20,
+            #     n_estimators=100,
+            #     truncation_factor=1,
+            #     rel_tolerance=0.01,
+            #     regression_nodes=["con", "lin", "pcon", "plin"],
+            # )
+            # results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
+
+            r = fit_cpilot_forest(
                 train_dataset=train_dataset,
                 test_dataset=test_dataset,
                 max_depth=20,
                 n_estimators=100,
-                truncation_factor=1,
-                rel_tolerance=0.01,
-                regression_nodes=["con", "lin", "pcon", "plin"],
             )
-            results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
+            results.append(dict(**dataset.summary(), fold=i, model="CPF", **r.asdict()))
+
+            r = fit_cpilot_forest(
+                train_dataset=train_dataset,
+                test_dataset=test_dataset,
+                max_depth=20,
+                n_estimators=100,
+                df_settings={"con": 1, "lin": 2, "pcon": 5, "blin": -1, "plin": 7, "pconc": 5},
+            )
+            results.append(dict(**dataset.summary(), fold=i, model="CPF - no blin", **r.asdict()))
 
             # XGB
             r = fit_xgboost(train_dataset=train_dataset, test_dataset=test_dataset)

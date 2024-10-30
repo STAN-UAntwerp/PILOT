@@ -7,7 +7,7 @@ UCI_DATASET_IDS = [
     60,
     87,
     # 89, # 3 targets
-    92,
+    # 92, # constant target
     162,
     165,
     183,
@@ -22,9 +22,9 @@ UCI_DATASET_IDS = [
     275,
     291,
     294,
-    300,
+    # 300, # binary target
     # 320, # 3 targets
-    # 332,  # SKipping because takes too long
+    332,  # SKipping because takes too long
     # 360, # no target defined
     368,
     374,
@@ -37,15 +37,15 @@ UCI_DATASET_IDS = [
     # 471, # 2 targets
     477,
     492,
-    519,
+    # 519, # binary target
     # 536, # no target defined
     # 544, # classification target
     # 547,  # binary target
     # 551, # no target defined
     # 555, # no target defined
     # 560, # binary target
-    563,
-    565,
+    # 563, # binary target
+    # 565, # binary target
     597,
     # 601, # 6 targets
     # 713, # 2 targets
@@ -54,7 +54,7 @@ UCI_DATASET_IDS = [
     # 851, # loading error
     # 857, # binary target
     # 880, # 3 targets
-    890,
+    # 890, # binary target
     # 913, # no target defined
     # 925, # 2 targets
     # 942, # classification target

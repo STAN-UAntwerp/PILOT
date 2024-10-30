@@ -33,7 +33,19 @@ def draw_borders(df, columns=["CART", "RF", "XGB"]):
     help="Name of the experiment (assuming the results are stored in a folder with the same name)",
 )
 def store_results(experiment_name):
-    COLUMN_ORDER = ["CART", "PILOT", "PILOT - no blin", "RF", "PF", "PF - no blin", "XGB"]
+    COLUMN_ORDER = [
+        "CART",
+        "PILOT",
+        "PILOT - no blin",
+        "CPILOT",
+        "CPILOT - no blin",
+        "RF",
+        "PF",
+        "PF - no blin",
+        "CPF",
+        "CPF - no blin",
+        "XGB",
+    ]
     experiment_folder = output_folder / experiment_name
     results = pd.read_csv(experiment_folder / "results.csv")
     scores = results.groupby(["id", "name", "model"])["r2"].mean().unstack()
@@ -45,9 +57,7 @@ def store_results(experiment_name):
         )
     scores = scores.loc[:, column_order]
 
-    scores = (
-        scores.style.apply(highlight_max, axis=1).apply(draw_borders, axis=None).format("{:.2f}")
-    )
+    scores = scores.style.apply(highlight_max, axis=1).format("{:.2f}")
 
     scores.to_html(experiment_folder / "r2_scores.html")
     dfi.export(scores, experiment_folder / "r2_scores.png", table_conversion="matplotlib")
@@ -58,7 +68,7 @@ def store_results(experiment_name):
         .unstack()
         .loc[:, column_order]
     )
-    times = times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightred"), axis=1).format(
+    times = times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
         "{:.2f}"
     )
     times.to_html(experiment_folder / "fit_duration.html")

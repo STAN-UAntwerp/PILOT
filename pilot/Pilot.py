@@ -20,7 +20,7 @@ from sklearn.base import BaseEstimator
 
 REGRESSION_NODES = ["con", "lin", "blin", "pcon", "plin"]
 NODE_PREFERENCE_ORDER = REGRESSION_NODES + ["pconc"]
-DEFAULT_DF_SETTINGS = {"con": 1, "lin": 2, "blin": 5, "pcon": 5, "plin": 7, "pconc": 5}
+DEFAULT_DF_SETTINGS = {"con": 1, "lin": 2, "pcon": 5, "blin": 5, "plin": 7, "pconc": 5}
 
 
 @nb.njit()
