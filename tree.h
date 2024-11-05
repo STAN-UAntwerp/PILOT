@@ -3,6 +3,7 @@
 #define TREE_H
 
 #include <armadillo> 
+#include <memory>
 
 
 
@@ -43,8 +44,8 @@ public:
   double rangeR;
   arma::vec pivot_c; // An array of the levels belong to the left node sorted in increasing order. Used if the chosen feature/predictor is categorical.
   
-  node* left;
-  node* right;
+  std::unique_ptr<node> left;
+  std::unique_ptr<node> right;
 };
 
 
@@ -106,7 +107,7 @@ protected:
   double lowerBound;
   double upperBound;
  
-  node* root;
+  std::unique_ptr<node> root;
   arma::vec res; // contains the residuals 
   arma::uvec nbNodesPerModelDepth; // count number of existing nodes per model depth
 };

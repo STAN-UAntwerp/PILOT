@@ -24,11 +24,11 @@ UCI_DATASET_IDS = [
     294,
     # 300, # binary target
     # 320, # 3 targets
-    # 332,  # SKipping because takes too long
+    332,  # SKipping because takes too long
     # 360, # no target defined
     368,
     374,
-    # 381,
+    381,
     # 390, # 6 targets
     409,
     # 461, # no target defined

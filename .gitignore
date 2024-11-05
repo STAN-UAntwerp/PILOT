@@ -7,3 +7,5 @@ Output/archive
 pyrightconfig.json
 *.pyc
 build/
+CMakeLists.txt
+pilot/cpilot.cpython-310-x86_64-linux-gnu.so

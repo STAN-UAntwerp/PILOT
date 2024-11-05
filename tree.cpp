@@ -1,4 +1,5 @@
 #include "tree.h"
+#include <iostream>
 
 // constructors
 
@@ -27,7 +28,7 @@ PILOT::PILOT(const arma::vec &dfs,
     throw std::range_error("The con node should have non-negative degrees of freedom.");
   }
 
-  root = NULL;
+  root = nullptr;
 }
 
 // methods
@@ -57,7 +58,7 @@ void PILOT::train(const arma::mat &X,
     Xrank.col(i) = xrank;
   }
   // build root node
-  root = new node;
+  root = std::make_unique<node>();
   root->obsIds = arma::regspace<arma::uvec>(0, 1, X.n_rows - 1);
   root->depth = 0;
   root->modelDepth = 0;
@@ -73,7 +74,7 @@ void PILOT::train(const arma::mat &X,
   nbNodesPerModelDepth(0) = 1;                                       // 1 root node at depth 0
 
 
-  PILOT::growTree(root, y, X, Xorder, Xrank, catIds);
+  PILOT::growTree(root.get(), y, X, Xorder, Xrank, catIds);
 }
 
 arma::vec PILOT::getResiduals() const
@@ -99,9 +100,9 @@ arma::mat PILOT::print() const
   // could also add modelID which increments for lin nodes as well.
 
   arma::mat tr(0, 10);
-  if (root != NULL)
+  if (root != nullptr)
   { // check if tree has been constructed
-    node *nd = root;
+    node *nd = root.get();
     printNode(nd, tr);
   }
   return tr;
@@ -128,12 +129,12 @@ void PILOT::printNode(node *nd, arma::mat &tr) const
   tr.row(tr.n_rows - 1) = vec;
   if (nd->type == 1)
   { // lin node
-    printNode(nd->left, tr);
+    printNode(nd->left.get(), tr);
   }
   else if (nd->type > 1)
   { // pcon/blin/plin/pconc --> split
-    printNode(nd->left, tr);
-    printNode(nd->right, tr);
+    printNode(nd->left.get(), tr);
+    printNode(nd->right.get(), tr);
   }
 }
 
@@ -244,7 +245,7 @@ void PILOT::growTree(node *nd,
       else
       {
         // construct a new node (left node only here)
-        nd->left = new node;
+        nd->left = std::make_unique<node>();
 
         nd->left->obsIds = nd->obsIds;
         nd->left->depth = nd->depth;
@@ -255,7 +256,7 @@ void PILOT::growTree(node *nd,
         nbNodesPerModelDepth(nd->left->modelDepth)++;
 
         // continue growing the tree
-        growTree(nd->left,
+        growTree(nd->left.get(),
                  y,
                  X,
                  Xorder,
@@ -277,8 +278,8 @@ void PILOT::growTree(node *nd,
       res(indR) = res(indR) - newSplit.best_intR;
 
       // construct new nodes
-      nd->left = new node;
-      nd->right = new node;
+      nd->left = std::make_unique<node>();
+      nd->right = std::make_unique<node>();
 
       nd->left->obsIds = indL;
       nd->right->obsIds = indR;
@@ -294,13 +295,13 @@ void PILOT::growTree(node *nd,
       nbNodesPerModelDepth(nd->right->modelDepth)++;
 
       // continue growing the tree
-      growTree(nd->left,
+      growTree(nd->left.get(),
                y,
                X,
                Xorder,
                Xrank,
                catIds);
-      growTree(nd->right,
+      growTree(nd->right.get(),
                y,
                X,
                Xorder,
@@ -328,8 +329,8 @@ void PILOT::growTree(node *nd,
       res(indR) = y(indR) - arma::clamp(y(indR) - res(indR), lowerBound, upperBound);
 
       // construct new nodes
-      nd->left = new node;
-      nd->right = new node;
+      nd->left = std::make_unique<node>();
+      nd->right = std::make_unique<node>();
 
       nd->left->obsIds = indL;
       nd->right->obsIds = indR;
@@ -345,13 +346,13 @@ void PILOT::growTree(node *nd,
       nbNodesPerModelDepth(nd->right->modelDepth)++;
 
       // continue growing the tree
-      growTree(nd->left,
+      growTree(nd->left.get(),
                y,
                X,
                Xorder,
                Xrank,
                catIds);
-      growTree(nd->right,
+      growTree(nd->right.get(),
                y,
                X,
                Xorder,
@@ -927,7 +928,7 @@ arma::vec PILOT::predict(const arma::mat &X) const
 
   for (arma::uword i = 0; i < X.n_rows; i++)
   {
-    node *nd = root;
+    node *nd = root.get();
     double yhati = 0.0;
 
     while (nd->type != 0)
@@ -936,7 +937,7 @@ arma::vec PILOT::predict(const arma::mat &X) const
       if (nd->type == 1)
       { // lin
         yhati += (nd->intL + (nd->slopeL) * x);
-        nd = nd->left;
+        nd = nd->left.get();
       }
       else if (nd->type == 5)
       { // pconc
@@ -944,12 +945,12 @@ arma::vec PILOT::predict(const arma::mat &X) const
         if (isLeft)
         {
           yhati += nd->intL;
-          nd = nd->left;
+          nd = nd->left.get();
         }
         else
         {
           yhati += nd->intR;
-          nd = nd->right;
+          nd = nd->right.get();
         }
       }
       else
@@ -957,12 +958,12 @@ arma::vec PILOT::predict(const arma::mat &X) const
         if (x <= nd->splitVal)
         {
           yhati += (nd->intL + (nd->slopeL) * x);
-          nd = nd->left;
+          nd = nd->left.get();
         }
         else
         {
           yhati += (nd->intR + (nd->slopeR) * x);
-          nd = nd->right;
+          nd = nd->right.get();
         }
       }
     }
