@@ -1,5 +1,6 @@
 import pathlib
 import click
+import re
 import pandas as pd
 import numpy as np
 import dataframe_image as dfi
@@ -85,6 +86,34 @@ def store_results(experiment_name):
         experiment_folder / "agg_r2_scores.png",
         table_conversion="matplotlib",
         max_cols=50,
+    )
+
+    cpf_scores = scores[[c for c in scores.columns if c.startswith("CPF")]].T
+    dfi.export(
+        cpf_scores.style.apply(highlight_max, axis=0).format("{:.2f}"),
+        experiment_folder / "cpf_r2_scores.png",
+        table_conversion="matplotlib",
+    )
+    cpf_scores = (
+        np.argsort(np.argsort(-cpf_scores, axis=0), axis=0)
+        .mean(axis=1)
+        .rename("average_rank")
+        .to_frame()
+    )
+
+    cpf_scores = cpf_scores.assign(
+        excl_blin=cpf_scores.index.map(lambda x: "no blin" in x),
+        alpha=cpf_scores.index.map(lambda x: 0.01 if "alpha" in x else 1),
+        max_depth=cpf_scores.index.map(lambda x: re.search(r"max_depth = (\d+)", x).group(1)),
+        max_node_features=cpf_scores.index.map(
+            lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
+        ),
+    )
+
+    dfi.export(
+        cpf_scores.reset_index(drop=True).style,
+        experiment_folder / "cpf_avg_rank.png",
+        table_conversion="matplotlib",
     )
 
 
