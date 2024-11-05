@@ -28,7 +28,7 @@ UCI_DATASET_IDS = [
     # 360, # no target defined
     368,
     374,
-    381,
+    # 381,
     # 390, # 6 targets
     409,
     # 461, # no target defined
