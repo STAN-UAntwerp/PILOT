@@ -6,7 +6,7 @@ CXX_DEFINES = -DCARMA_USE_GENERATED_CONFIG=1 -DCARMA_VERSION_MAJOR=0 -DCARMA_VER
 
 CXX_INCLUDES = -isystem /home/servot82/miniconda3/lib/python3.11/site-packages/pybind11/include -isystem /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10 -isystem /usr/local/include/carma -isystem /home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include
 
-CXX_FLAGS = -fPIC -fvisibility=hidden -flto -fno-fat-lto-objects
+CXX_FLAGS =  -O3 -fPIC -fvisibility=hidden -flto -fno-fat-lto-objects
 
 # PCH options: CMakeFiles/cpilot.dir/cmake_pch.hxx.gch_OPTIONS = -Winvalid-pch;-x;c++-header;-include;/home/servot82/PILOT/build/CMakeFiles/cpilot.dir/cmake_pch.hxx
 

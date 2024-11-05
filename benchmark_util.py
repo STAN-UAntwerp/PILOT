@@ -85,7 +85,10 @@ class FitResult:
 
 @retry(ConnectionError, tries=5, delay=10)
 def load_data(
-    repo_id: int, ignore_feat: list[str] | None = None, use_download: bool = True
+    repo_id: int,
+    ignore_feat: list[str] | None = None,
+    use_download: bool = True,
+    logtransform_target: bool = False,
 ) -> Dataset:
     if use_download:
         path = pathlib.Path(__file__).parent.resolve() / "Data" / f"{repo_id}.pkl"
@@ -122,6 +125,9 @@ def load_data(
             f"{len(X)} rows  and {X.shape[1]} columns remaining."
         )
     pd.options.mode.use_inf_as_na = False
+
+    if logtransform_target:
+        y = np.log1p(y)
 
     cat_ids = [
         i
@@ -200,10 +206,16 @@ def fit_cpilot(
     min_sample_fit=5,
     max_depth=20,
     max_model_depth=100,
+    max_node_features=1,
+    rel_tolerance=0.01,
     precision_scale=1e-10,
 ) -> FitResult:
     t1 = time.time()
-
+    max_features = (
+        int(np.sqrt(train_dataset.n_features))
+        if max_node_features == "sqrt"
+        else int(max_node_features * train_dataset.n_features)
+    )
     model = CPILOT(
         dfs,
         min_sample_leaf,
@@ -211,6 +223,8 @@ def fit_cpilot(
         min_sample_fit,
         max_depth,
         max_model_depth,
+        max_features,
+        rel_tolerance,
         precision_scale,
     )
     catids = np.zeros(train_dataset.n_features, dtype=int)
@@ -253,9 +267,37 @@ def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwarg
     return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
-def fit_cpilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+def fit_cpilot_forest(
+    train_dataset: Dataset,
+    test_dataset: Dataset,
+    n_estimators: int = 10,
+    max_depth: int = 12,
+    max_model_depth: int = 100,
+    min_sample_fit: int = 10,
+    min_sample_alpha: int = 5,
+    min_sample_leaf: int = 5,
+    random_state: int = 42,
+    n_features_tree: float | str = 1,
+    n_features_node: float | str = 1,
+    df_settings: dict[str, int] | None = None,
+    rel_tolerance: float = 1e-2,
+    precision_scale: float = 1e-10,
+) -> FitResult:
     t1 = time.time()
-    model = RandomForestCPilot(**init_kwargs)
+    model = RandomForestCPilot(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        max_model_depth=max_model_depth,
+        min_sample_fit=min_sample_fit,
+        min_sample_alpha=min_sample_alpha,
+        min_sample_leaf=min_sample_leaf,
+        n_features_tree=n_features_tree,
+        n_features_node=n_features_node,
+        df_settings=df_settings,
+        rel_tolerance=rel_tolerance,
+        precision_scale=precision_scale,
+        random_state=random_state,
+    )
     model.fit(
         train_dataset.X_label_encoded.values,
         train_dataset.y.values,
@@ -269,9 +311,9 @@ def fit_cpilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwar
     return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
-def fit_xgboost(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
+def fit_xgboost(train_dataset: Dataset, test_dataset: Dataset, max_depth: int = 6) -> FitResult:
     t1 = time.time()
-    model = xgb.XGBRegressor()
+    model = xgb.XGBRegressor(max_depth=max_depth)
     model.fit(
         train_dataset.X_oh_encoded.values,
         train_dataset.y.values,

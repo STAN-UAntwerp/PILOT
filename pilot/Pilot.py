@@ -18,7 +18,7 @@ from .Tree import tree
 
 from sklearn.base import BaseEstimator
 
-REGRESSION_NODES = ["con", "lin", "blin", "pcon", "plin"]
+REGRESSION_NODES = ["con", "lin", "pcon", "blin", "plin"]
 NODE_PREFERENCE_ORDER = REGRESSION_NODES + ["pconc"]
 DEFAULT_DF_SETTINGS = {"con": 1, "lin": 2, "pcon": 5, "blin": 5, "plin": 7, "pconc": 5}
 
@@ -992,7 +992,9 @@ class PILOT(BaseEstimator):
         summary_df = pd.DataFrame(summary)
         if feature_names is not None:
             summary_df = summary_df.assign(
-                pivot_name=lambda x: x.pivot_idx.map(lambda y: feature_names[y])
+                pivot_name=lambda x: x.pivot_idx.map(
+                    lambda y: feature_names[int(y)] if not np.isnan(y) else None
+                )
             )
         return summary_df
 

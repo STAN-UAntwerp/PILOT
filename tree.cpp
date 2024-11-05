@@ -2,18 +2,22 @@
 
 // constructors
 
-PILOT::PILOT(const arma::ivec &dfs,
+PILOT::PILOT(const arma::vec &dfs,
              const arma::uword &min_sample_leaf,
              const arma::uword &min_sample_alpha,
              const arma::uword &min_sample_fit,
              const arma::uword &maxDepth,
              const arma::uword &maxModelDepth,
+             const arma::uword &maxFeatures,
+             const double &rel_tolerance,
              const double &precScale) : dfs(dfs),
                                         min_sample_leaf(min_sample_leaf),
                                         min_sample_alpha(min_sample_alpha),
                                         min_sample_fit(min_sample_fit),
                                         maxDepth(maxDepth),
                                         maxModelDepth(maxModelDepth),
+                                        maxFeatures(maxFeatures),
+                                        rel_tolerance(rel_tolerance),
                                         precScale(precScale)
 {
   // if we want, we can do an additional input check here
@@ -22,6 +26,7 @@ PILOT::PILOT(const arma::ivec &dfs,
   {
     throw std::range_error("The con node should have non-negative degrees of freedom.");
   }
+
   root = NULL;
 }
 
@@ -32,17 +37,21 @@ void PILOT::train(const arma::mat &X,
                   const arma::uvec &catIds)
 { // d-dimensional vector indicating the categorical variables with 1
   // can perform input checks here
+  if (maxFeatures > X.n_cols)
+  {
+    throw std::range_error("maxFeatures should not be larger than the number of features");
+  }
 
   // calculate Xorder and Xrank
   arma::umat Xorder(X.n_rows, X.n_cols, arma::fill::zeros);
   arma::umat Xrank(X.n_rows, X.n_cols, arma::fill::zeros);
-
-  for (arma::uword i = 0; i < X.n_cols; i++) { // O(d n\log(n))
+  for (arma::uword i = 0; i < X.n_cols; i++)
+  { // O(d n\log(n))
     arma::uvec xorder = arma::sort_index(X.col(i));
     arma::uvec xrank(Xorder.n_rows, arma::fill::zeros);
-
-    for (arma::uword j = 0; j < X.n_rows; j++) {
-        xrank(xorder(j)) = j;
+    for (arma::uword j = 0; j < X.n_rows; j++)
+    {
+      xrank(xorder(j)) = j;
     }
     Xorder.col(i) = xorder;
     Xrank.col(i) = xrank;
@@ -208,30 +217,51 @@ void PILOT::growTree(node *nd,
       arma::vec x = X.col(newSplit.best_feature);
       x = x(nd->obsIds);
       // update res
+      double rss_old = arma::sum(arma::square(res(nd->obsIds)));
       res(nd->obsIds) = res(nd->obsIds) - newSplit.best_intL - newSplit.best_slopeL * x;
       // truncate prediction
       // we clip the overall predictions (=y - current residuals) between lowerBound and upperBound
 
       res(nd->obsIds) = y(nd->obsIds) - arma::clamp(y(nd->obsIds) - res(nd->obsIds), lowerBound, upperBound);
 
-      // construct a new node (left node only here)
-      nd->left = new node;
+      double rss_new = arma::sum(arma::square(res(nd->obsIds)));
 
-      nd->left->obsIds = nd->obsIds;
-      nd->left->depth = nd->depth;
-      nd->left->modelDepth = nd->modelDepth + 1;
-      //
+      if ((rss_old - rss_new) / rss_old < rel_tolerance)
+      {
+        nd->intL = arma::mean(res(nd->obsIds));
+        nd->slopeL = arma::datum::nan;
+        nd->splitVal = arma::datum::nan;
+        nd->predId = arma::datum::nan;
+        nd->intR = arma::datum::nan;
+        nd->slopeR = arma::datum::nan;
+        nd->rangeL = arma::datum::nan;
+        nd->rangeR = arma::datum::nan;
+        res(nd->obsIds) -= nd->intL; // subtract mean
+        nd->rss = arma::sum(arma::square(res(nd->obsIds)));
+        // set type to con, and no new call to growtree
+        nd->type = 0;
+      }
+      else
+      {
+        // construct a new node (left node only here)
+        nd->left = new node;
 
-      nd->left->nodeId = nbNodesPerModelDepth(nd->left->modelDepth);
-      nbNodesPerModelDepth(nd->left->modelDepth)++;
+        nd->left->obsIds = nd->obsIds;
+        nd->left->depth = nd->depth;
+        nd->left->modelDepth = nd->modelDepth + 1;
+        //
 
-      // continue growing the tree
-      growTree(nd->left,
-               y,
-               X,
-               Xorder,
-               Xrank,
-               catIds);
+        nd->left->nodeId = nbNodesPerModelDepth(nd->left->modelDepth);
+        nbNodesPerModelDepth(nd->left->modelDepth)++;
+
+        // continue growing the tree
+        growTree(nd->left,
+                 y,
+                 X,
+                 Xorder,
+                 Xrank,
+                 catIds);
+      }
     }
     else if (newSplit.best_type == 5)
     { // split on categorical variable (pconc)
@@ -418,15 +448,17 @@ bestSplitOut PILOT::findBestSplit(
     sortLocally = true;
   }
 
-  for (arma::uword j = 0; j < d; j++)
+  arma::uvec featuresToConsider = arma::randperm(d, maxFeatures);
+
+  for (arma::uword j : featuresToConsider)
   { // iterate over features
 
     // unsorted variables
-    //x = X.submat(obsIds, arma::uvec{j});
+    // x = X.submat(obsIds, arma::uvec{j});
 
     // get sorted variables.
     if (sortLocally)
-    {                               // if n is small, it is faster to sort locally.
+    {                                                             // if n is small, it is faster to sort locally.
       xorder = arma::sort_index(X.submat(obsIds, arma::uvec{j})); // local order
       xs = X.submat(obsIds(xorder), arma::uvec{j});
       ys = res(obsIds(xorder));
@@ -504,11 +536,6 @@ bestSplitOut PILOT::findBestSplit(
 
       if (n < min_sample_alpha)
       { // check if enough samples to fit piecewise models
-        continue;
-      }
-
-      if (best_bic < logn * dfs(2))
-      { // in this case, pcon (and thus plin) has by default a larger bic, so we don't need to try and split
         continue;
       }
 
@@ -732,12 +759,6 @@ bestSplitOut PILOT::findBestSplit(
           }
         }
 
-        if (best_bic < logn * dfs(4))
-        { // in this case,  plin has by default a larger bic, so we don't need to try and split
-          splitVal_old = splitVal;
-          continue;
-        }
-
         // plin model
         if (dfs(4) >= 0)
         {
@@ -747,7 +768,6 @@ bestSplitOut PILOT::findBestSplit(
 
           if ((varL > precScale * nL * nL) && (varR > precScale * nR * nR))
           {
-
             slopeL = (nL * sumxyL - sumxL * sumyL) / varL;
             intL = (sumyL - slopeL * sumxL) / nL;
 

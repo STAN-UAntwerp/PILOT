@@ -12,6 +12,7 @@ find_package(carma CONFIG REQUIRED)
 
 # Set the output directory for the compiled module
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/pilot)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 
 pybind11_add_module(cpilot pilot_wrapper.cpp tree.cpp)
 

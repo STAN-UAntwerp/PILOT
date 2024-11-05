@@ -53,12 +53,14 @@ class PILOT {
 public:
   // constructors
   // PILOT();
-  PILOT(const arma::ivec& dfs,
+  PILOT(const arma::vec& dfs,
         const arma::uword& min_sample_leaf,
         const arma::uword& min_sample_alpha,
         const arma::uword& min_sample_fit,
         const arma::uword& maxDepth,
         const arma::uword& maxModelDepth,
+        const arma::uword& maxFeatures,
+        const double &rel_tolerance,
         const double& precScale);
   // for forests, should still include:
   // const arma::uword& Id, const arma::uword mtry
@@ -92,12 +94,14 @@ protected:
 protected:
   // protected fields
   //int _id;
-  arma::ivec dfs;// the degrees of freedom for 'con/lin/pcon'/'blin'/'plin/pconc'. -1 means they are not considered
+  arma::vec dfs;// the degrees of freedom for 'con/lin/pcon'/'blin'/'plin/pconc'. negative values means they are not considered
   arma::uword min_sample_leaf; // the minimal number of samples required to be a leaf node
   arma::uword min_sample_alpha; // the minimal number of samples required to fit a model that splits the node.
   arma::uword min_sample_fit; // minimal number of samples required to fit any model
   arma::uword maxDepth; // max depth excluding lin nodes
   arma::uword maxModelDepth; // max depth counting lin nodes as well
+  arma::uword maxFeatures;
+  double rel_tolerance;
   double precScale;
   double lowerBound;
   double upperBound;

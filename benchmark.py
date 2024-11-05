@@ -1,14 +1,29 @@
 import pathlib
 import click
+import itertools
 import numpy as np
 import pandas as pd
 
 from sklearn.model_selection import KFold
 
-from benchmark_config import UCI_DATASET_IDS, IGNORE_COLUMNS
+from pilot import DEFAULT_DF_SETTINGS
+from benchmark_config import LOGTRANSFORM_TARGET, UCI_DATASET_IDS, IGNORE_COLUMNS
 from benchmark_util import *
 
 OUTPUTFOLDER = pathlib.Path(__file__).parent / "Output"
+
+df_setting_alpha01 = dict(
+    zip(
+        DEFAULT_DF_SETTINGS.keys(),
+        1 + 0.01 * (np.array(list(DEFAULT_DF_SETTINGS.values())) - 1),
+    )
+)
+
+df_setting_alpha01_no_blin = df_setting_alpha01.copy()
+df_setting_alpha01_no_blin["blin"] = -1
+
+df_setting_no_blin = DEFAULT_DF_SETTINGS.copy()
+df_setting_no_blin["blin"] = -1
 
 
 @click.command()
@@ -34,13 +49,18 @@ def run_benchmark(experiment_name):
     ]
     for repo_id in repo_ids_to_process:
         print(repo_id)
-        dataset = load_data(repo_id, ignore_feat=IGNORE_COLUMNS.get(repo_id))
+        dataset = load_data(
+            repo_id,
+            ignore_feat=IGNORE_COLUMNS.get(repo_id),
+            logtransform_target=(repo_id in LOGTRANSFORM_TARGET),
+        )
         for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
             print(f"\tFold {i} / 5")
             train_dataset = dataset.subset(train)
             test_dataset = dataset.subset(test)
 
             # CART
+            print("\t\tCART")
             r = fit_cart(train_dataset=train_dataset, test_dataset=test_dataset)
             results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
 
@@ -64,6 +84,7 @@ def run_benchmark(experiment_name):
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
 
+            print("\t\tCPILOT")
             r = fit_cpilot(
                 train_dataset=train_dataset,
                 test_dataset=test_dataset,
@@ -71,19 +92,19 @@ def run_benchmark(experiment_name):
             )
             results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
 
-            r = fit_cpilot(
-                train_dataset=train_dataset,
-                test_dataset=test_dataset,
-                max_depth=20,
-                dfs=[1, 2, 5, -1, 7, 5],
-            )
-            results.append(
-                dict(**dataset.summary(), fold=i, model="CPILOT - no blin", **r.asdict())
-            )
-
             # RF
+            print("\t\tRF")
             r = fit_random_forest(
                 train_dataset=train_dataset, test_dataset=test_dataset, n_estimators=100
+            )
+            results.append(dict(**dataset.summary(), fold=i, model="RF", **r.asdict()))
+
+            print("\t\tRF - max_depth = 6")
+            r = fit_random_forest(
+                train_dataset=train_dataset,
+                test_dataset=test_dataset,
+                n_estimators=100,
+                max_depth=6,
             )
             results.append(dict(**dataset.summary(), fold=i, model="RF", **r.asdict()))
 
@@ -108,27 +129,53 @@ def run_benchmark(experiment_name):
             #     regression_nodes=["con", "lin", "pcon", "plin"],
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
-
-            r = fit_cpilot_forest(
-                train_dataset=train_dataset,
-                test_dataset=test_dataset,
-                max_depth=20,
-                n_estimators=100,
-            )
-            results.append(dict(**dataset.summary(), fold=i, model="CPF", **r.asdict()))
-
-            r = fit_cpilot_forest(
-                train_dataset=train_dataset,
-                test_dataset=test_dataset,
-                max_depth=20,
-                n_estimators=100,
-                df_settings={"con": 1, "lin": 2, "pcon": 5, "blin": -1, "plin": 7, "pconc": 5},
-            )
-            results.append(dict(**dataset.summary(), fold=i, model="CPF - no blin", **r.asdict()))
+            for i, ((df_name, df_setting), max_depth, max_features) in enumerate(
+                itertools.product(
+                    [
+                        ("default df", DEFAULT_DF_SETTINGS),
+                        ("df alpha = 0.01", df_setting_alpha01),
+                        ("df alpha = 0.01, no blin", df_setting_alpha01_no_blin),
+                        ("df no blin", df_setting_no_blin),
+                    ],
+                    [6, 20],
+                    [0.7, 1],
+                )
+            ):
+                model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features}"
+                print(f"\t\t{model_name}")
+                r = fit_cpilot_forest(
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    n_estimators=100,
+                    min_sample_leaf=1,
+                    min_sample_alpha=2,
+                    min_sample_fit=2,
+                    max_depth=max_depth,
+                    n_features_node=max_features,
+                    df_settings=df_setting,
+                )
+                results.append(
+                    dict(
+                        **dataset.summary(),
+                        fold=i,
+                        model=model_name,
+                        **r.asdict(),
+                        max_depth=max_depth,
+                        df_setting=df_setting,
+                    )
+                )
 
             # XGB
+            print("\t\tXGB")
             r = fit_xgboost(train_dataset=train_dataset, test_dataset=test_dataset)
             results.append(dict(**dataset.summary(), fold=i, model="XGB", **r.asdict()))
+
+            # XGB
+            print("\t\tXGB - max_depth = 20")
+            r = fit_xgboost(train_dataset=train_dataset, test_dataset=test_dataset, max_depth=20)
+            results.append(
+                dict(**dataset.summary(), fold=i, model="XGB - max_depth = 20", **r.asdict())
+            )
 
         pd.DataFrame(results).to_csv(experiment_file, index=False)
 

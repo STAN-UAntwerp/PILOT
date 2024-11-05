@@ -24,7 +24,7 @@ UCI_DATASET_IDS = [
     294,
     # 300, # binary target
     # 320, # 3 targets
-    332,  # SKipping because takes too long
+    # 332,  # SKipping because takes too long
     # 360, # no target defined
     368,
     374,
@@ -61,3 +61,4 @@ UCI_DATASET_IDS = [
 ]
 
 IGNORE_COLUMNS = {183: ["state", "county", "community", "communityname", "fold"]}
+LOGTRANSFORM_TARGET = [162, 332]

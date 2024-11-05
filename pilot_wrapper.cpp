@@ -6,29 +6,6 @@
 
 namespace py = pybind11;
 
-arma::ivec list_to_ivec(const py::list& list) {
-    arma::ivec vec(list.size());
-    for (size_t i = 0; i < list.size(); ++i) {
-        vec[i] = list[i].cast<int>();
-    }
-    return vec;
-}
-
-arma::mat numpy_to_mat(const py::array_t<double>& array) {
-    py::buffer_info info = array.request();
-    double* data = static_cast<double*>(info.ptr);
-    arma::mat mat(info.shape[0], info.shape[1]); // Create an empty matrix with the correct shape
-
-    // Manually copy the data from the NumPy array to the Armadillo matrix
-    for (size_t i = 0; i < info.shape[0]; ++i) {
-        for (size_t j = 0; j < info.shape[1]; ++j) {
-            mat(i, j) = data[i * info.shape[1] + j];
-        }
-    }
-
-    return mat;
-}
-
 arma::vec numpy_to_vec(const py::array_t<double>& array) {
     py::buffer_info info = array.request();
     double* data = static_cast<double*>(info.ptr);
@@ -51,19 +28,23 @@ py::array_t<double> vec_to_numpy(const arma::vec& vec) {
 
 class PyPILOT {
 public:
-    PyPILOT(const py::list& dfs,
+    PyPILOT(const py::array_t<double>& dfs,
             unsigned int min_sample_leaf,
             unsigned int min_sample_alpha,
             unsigned int min_sample_fit,
             unsigned int maxDepth,
             unsigned int maxModelDepth,
+            unsigned int maxFeatures,
+            double rel_tolerance,
             double precScale)
-        : pilot(list_to_ivec(dfs),
+        : pilot(numpy_to_vec(dfs),
                 min_sample_leaf,
                 min_sample_alpha,
                 min_sample_fit,
                 maxDepth,
                 maxModelDepth,
+                maxFeatures,
+                rel_tolerance,
                 precScale) {}
 
     void train(const py::array_t<double>& X,
@@ -79,19 +60,27 @@ public:
         return vec_to_numpy(predictions);
     }
 
+    py::array_t<double> print() const {
+        arma::mat tree = pilot.print();
+        return carma::mat_to_arr(tree);
+    }
+
 private:
     PILOT pilot;
 };
 
 PYBIND11_MODULE(cpilot, m) {
     py::class_<PyPILOT>(m, "PILOT")
-        .def(py::init<const py::list&,
-                      unsigned int,
-                      unsigned int,
-                      unsigned int,
-                      unsigned int,
-                      unsigned int,
-                      double>())
+        .def(py::init<const py::list&, //dfs
+                      unsigned int, //min_sample_leaf
+                      unsigned int, //min_sample_alpha
+                      unsigned int, //min_sample_fit
+                      unsigned int, //maxDepth
+                      unsigned int, //maxModelDepth
+                      unsigned int, //maxFeatures
+                      double, //rel_tolerance
+                      double>()) //precScale
         .def("train", &PyPILOT::train)
-        .def("predict", &PyPILOT::predict);
+        .def("predict", &PyPILOT::predict)
+        .def("print", &PyPILOT::print);
 }

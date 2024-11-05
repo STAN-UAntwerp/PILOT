@@ -48,10 +48,14 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.gch: CMakeFiles/cpilot.dir/cmake_pch.hxx \
   /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
   /usr/include/x86_64-linux-gnu/bits/floatn.h \
   /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio.h \
+  /usr/include/x86_64-linux-gnu/bits/stdio2.h \
   /usr/include/string.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
   /usr/include/strings.h \
+  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
+  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
   /usr/include/errno.h \
   /usr/include/x86_64-linux-gnu/bits/errno.h \
   /usr/include/linux/errno.h \
@@ -85,6 +89,7 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.gch: CMakeFiles/cpilot.dir/cmake_pch.hxx \
   /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+  /usr/include/x86_64-linux-gnu/bits/select2.h \
   /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
   /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
   /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
@@ -92,7 +97,9 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.gch: CMakeFiles/cpilot.dir/cmake_pch.hxx \
   /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
   /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
   /usr/include/alloca.h \
+  /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
   /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+  /usr/include/x86_64-linux-gnu/bits/stdlib.h \
   /usr/include/c++/11/bits/std_abs.h \
   /usr/include/unistd.h \
   /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
@@ -100,6 +107,7 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.gch: CMakeFiles/cpilot.dir/cmake_pch.hxx \
   /usr/include/x86_64-linux-gnu/bits/confname.h \
   /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
   /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+  /usr/include/x86_64-linux-gnu/bits/unistd.h \
   /usr/include/x86_64-linux-gnu/bits/unistd_ext.h \
   /usr/include/linux/close_range.h \
   /usr/include/assert.h \
@@ -198,6 +206,7 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.gch: CMakeFiles/cpilot.dir/cmake_pch.hxx \
   /usr/include/wchar.h \
   /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
+  /usr/include/x86_64-linux-gnu/bits/wchar2.h \
   /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/unicodeobject.h \
   /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/longobject.h \
   /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/longintrepr.h \
@@ -438,6 +447,7 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.gch: CMakeFiles/cpilot.dir/cmake_pch.hxx \
   /home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/__multiarray_api.h \
   /home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/npy_interrupt.h \
   /usr/include/setjmp.h \
+  /usr/include/x86_64-linux-gnu/bits/setjmp2.h \
   /usr/include/signal.h \
   /usr/include/x86_64-linux-gnu/bits/signum-generic.h \
   /usr/include/x86_64-linux-gnu/bits/signum-arch.h \
@@ -2018,8 +2028,6 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/newarp_DenseGenMatProd_meat.hpp:
 
-/usr/include/armadillo_bits/newarp_cx_attrib.hpp:
-
 /usr/include/armadillo_bits/spsolve_factoriser_meat.hpp:
 
 /usr/include/armadillo_bits/spglue_relational_meat.hpp:
@@ -2034,15 +2042,17 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/spop_relational_meat.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/math-vector.h:
+/usr/include/armadillo_bits/spop_repmat_meat.hpp:
 
-/usr/include/c++/11/complex:
+/usr/include/armadillo_bits/spop_normalise_meat.hpp:
 
-/usr/include/armadillo_bits/op_median_meat.hpp:
+/usr/include/armadillo_bits/spop_symmat_meat.hpp:
 
-/usr/include/armadillo_bits/def_atlas.hpp:
+/usr/include/armadillo_bits/spop_diagmat_meat.hpp:
 
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/pyframe.h:
+/usr/include/armadillo_bits/spop_misc_meat.hpp:
+
+/usr/include/armadillo_bits/spop_htrans_meat.hpp:
 
 /usr/include/armadillo_bits/arma_rng.hpp:
 
@@ -2156,8 +2166,6 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/mul_syrk.hpp:
 
-/usr/include/armadillo_bits/def_lapack.hpp:
-
 /usr/include/setjmp.h:
 
 /usr/include/armadillo_bits/op_diagmat_meat.hpp:
@@ -2200,13 +2208,13 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/pytime.h:
 
-/usr/include/armadillo_bits/translate_lapack.hpp:
-
-/usr/include/c++/11/cxxabi.h:
-
 /usr/include/c++/11/ctime:
 
 /usr/include/c++/11/ratio:
+
+/usr/include/armadillo_bits/spop_reverse_meat.hpp:
+
+/usr/include/armadillo_bits/glue_polyfit_meat.hpp:
 
 /usr/include/armadillo_bits/include_superlu.hpp:
 
@@ -2225,12 +2233,6 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/armadillo_bits/glue_times_misc_bones.hpp:
 
 /usr/include/c++/11/streambuf:
-
-/usr/include/armadillo_bits/def_superlu.hpp:
-
-/usr/include/armadillo_bits/fn_randg.hpp:
-
-/usr/include/armadillo_bits/fn_wishrnd.hpp:
 
 /usr/include/c++/11/bits/streambuf_iterator.h:
 
@@ -2257,8 +2259,6 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/armadillo_bits/subview_field_bones.hpp:
 
 /usr/include/armadillo_bits/fn_speye.hpp:
-
-/usr/include/c++/11/bits/basic_ios.tcc:
 
 /usr/include/armadillo_bits/fn_randn.hpp:
 
@@ -2305,10 +2305,6 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/c++/11/bits/localefwd.h:
 
 /usr/include/armadillo_bits/debug.hpp:
-
-/usr/include/armadillo_bits/def_arpack.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/thread-shared-types.h:
 
 /usr/include/c++/11/pstl/glue_algorithm_defs.h:
 
@@ -2395,10 +2391,6 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/c++/11/bits/stl_tempbuf.h:
 
 /usr/include/armadillo_bits/SpToDGlue_meat.hpp:
-
-/usr/include/armadillo_bits/op_row_as_mat_meat.hpp:
-
-/usr/include/c++/11/memory:
 
 /usr/include/armadillo_bits/arma_config.hpp:
 
@@ -2510,6 +2502,8 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/sysmodule.h:
 
+/usr/include/c++/11/memory:
+
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/pyfpe.h:
 
 /usr/include/x86_64-linux-gnu/bits/typesizes.h:
@@ -2530,7 +2524,15 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/op_normalise_bones.hpp:
 
-/usr/include/armadillo_bits/fn_powext.hpp:
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/modsupport.h:
+
+/usr/include/armadillo_bits/spglue_kron_bones.hpp:
+
+/usr/include/armadillo_bits/fn_trunc_exp.hpp:
+
+/usr/include/pthread.h:
+
+/usr/include/armadillo_bits/fn_expmat.hpp:
 
 /usr/include/armadillo_bits/spglue_times_meat.hpp:
 
@@ -2544,17 +2546,19 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/linux/posix_types.h:
 
-/usr/include/c++/11/cwchar:
-
-/usr/include/armadillo_bits/SpMat_meat.hpp:
-
 /usr/include/c++/11/cwctype:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cellobject.h:
 
-/usr/include/c++/11/bits/forward_list.h:
+/usr/include/x86_64-linux-gnu/bits/math-vector.h:
 
-/usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h:
+/usr/include/c++/11/complex:
+
+/usr/include/x86_64-linux-gnu/bits/thread-shared-types.h:
+
+/usr/include/armadillo_bits/def_arpack.hpp:
+
+/usr/include/armadillo_bits/op_median_meat.hpp:
 
 /usr/include/c++/11/cmath:
 
@@ -2610,6 +2614,12 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/fn_normcdf.hpp:
 
+/usr/include/armadillo_bits/newarp_cx_attrib.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/unistd.h:
+
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/fileobject.h:
+
 /usr/include/x86_64-linux-gnu/bits/confname.h:
 
 /usr/include/armadillo_bits/glue_polyval_bones.hpp:
@@ -2632,9 +2642,9 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/alloca.h:
 
-/usr/include/c++/11/bits/postypes.h:
+/usr/include/c++/11/bits/basic_ios.tcc:
 
-/usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
+/usr/include/x86_64-linux-gnu/bits/setjmp2.h:
 
 /usr/include/armadillo_bits/MapMat_meat.hpp:
 
@@ -2647,6 +2657,14 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/strings.h:
 
 /usr/include/armadillo_bits/op_princomp_bones.hpp:
+
+/usr/include/armadillo_bits/SpMat_meat.hpp:
+
+/usr/include/c++/11/cwchar:
+
+/usr/include/x86_64-linux-gnu/bits/select2.h:
+
+/usr/include/linux/types.h:
 
 /usr/include/c++/11/bits/ostream.tcc:
 
@@ -2662,6 +2680,8 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/x86_64-linux-gnu/sys/types.h:
 
+/usr/include/x86_64-linux-gnu/bits/string_fortified.h:
+
 /usr/include/c++/11/cstdint:
 
 /usr/include/armadillo_bits/ProxyCube.hpp:
@@ -2676,11 +2696,13 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_statx.h:
 
+/usr/include/armadillo_bits/Col_meat.hpp:
+
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/tupleobject.h:
+
 /usr/include/x86_64-linux-gnu/bits/waitflags.h:
 
 /usr/include/armadillo_bits/mtGlue_bones.hpp:
-
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/fileobject.h:
 
 /usr/include/stdlib.h:
 
@@ -2698,9 +2720,25 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/linux/stddef.h:
 
-/usr/include/x86_64-linux-gnu/bits/mathcalls.h:
+/usr/include/c++/11/stdlib.h:
 
-/usr/include/x86_64-linux-gnu/bits/endian.h:
+/usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h:
+
+/usr/include/armadillo_bits/op_powmat_meat.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
+
+/usr/include/x86_64-linux-gnu/asm/posix_types_64.h:
+
+/usr/include/armadillo_bits/SpValProxy_meat.hpp:
+
+/home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/npy_cpu.h:
+
+/usr/include/armadillo_bits/op_shuffle_meat.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h:
+
+/usr/include/armadillo_bits/op_toeplitz_meat.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/time64.h:
 
@@ -2715,6 +2753,14 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h:
 
 /usr/include/armadillo_bits/fn_nonzeros.hpp:
+
+/usr/include/asm-generic/errno-base.h:
+
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/objimpl.h:
+
+/usr/include/x86_64-linux-gnu/bits/endian.h:
+
+/usr/include/x86_64-linux-gnu/bits/mathcalls.h:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/genericaliasobject.h:
 
@@ -2733,6 +2779,8 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /usr/include/x86_64-linux-gnu/bits/long-double.h:
 
 /usr/include/x86_64-linux-gnu/bits/getopt_core.h:
+
+/usr/include/x86_64-linux-gnu/bits/stdlib.h:
 
 /usr/include/c++/11/bits/functexcept.h:
 
@@ -2762,11 +2810,9 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/x86_64-linux-gnu/bits/local_lim.h:
 
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/abstract.h:
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/pyframe.h:
 
-/usr/include/armadillo_bits/def_blas.hpp:
-
-/home/servot82/miniconda3/lib/python3.11/site-packages/pybind11/include/pybind11/detail/common.h:
+/usr/include/armadillo_bits/def_atlas.hpp:
 
 /usr/include/c++/11/string:
 
@@ -2778,6 +2824,16 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/op_flip_bones.hpp:
 
+/usr/include/x86_64-linux-gnu/sys/single_threaded.h:
+
+/usr/include/armadillo_bits/fn_vecnorm.hpp:
+
+/usr/include/armadillo_bits/fn_median.hpp:
+
+/usr/include/c++/11/type_traits:
+
+/usr/include/armadillo_bits/op_reverse_meat.hpp:
+
 /usr/include/x86_64-linux-gnu/bits/signum-arch.h:
 
 /usr/include/c++/11/bits/codecvt.h:
@@ -2787,6 +2843,14 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/tracemalloc.h:
 
 /usr/include/x86_64-linux-gnu/bits/errno.h:
+
+/usr/include/armadillo_bits/op_symmat_meat.hpp:
+
+/usr/include/c++/11/typeindex:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
+
+/usr/include/x86_64-linux-gnu/asm/errno.h:
 
 /usr/include/x86_64-linux-gnu/sys/stat.h:
 
@@ -2798,6 +2862,8 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/string.h:
 
+/usr/include/x86_64-linux-gnu/bits/stdio.h:
+
 /usr/include/x86_64-linux-gnu/bits/stdlib-float.h:
 
 /usr/include/x86_64-linux-gnu/bits/statx-generic.h:
@@ -2808,25 +2874,43 @@ CMakeFiles/cpilot.dir/tree.cpp.o: CMakeFiles/cpilot.dir/cmake_pch.hxx \
 
 /usr/include/armadillo_bits/SpBase_bones.hpp:
 
+/usr/include/c++/11/unordered_set:
+
+/usr/include/armadillo_bits/fn_eig_gen.hpp:
+
+/usr/include/armadillo_bits/op_sp_var_meat.hpp:
+
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/context.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/FILE.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/time_t.h:
+
 /usr/include/armadillo_bits/spglue_min_meat.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/pylifecycle.h:
 
 /usr/include/features.h:
 
-/usr/include/armadillo_bits/op_sum_meat.hpp:
+/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/abstract.h:
 
-/usr/include/armadillo_bits/op_diff_bones.hpp:
+/usr/include/armadillo_bits/def_blas.hpp:
 
-/usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h:
+/home/servot82/miniconda3/lib/python3.11/site-packages/pybind11/include/pybind11/detail/common.h:
 
-/usr/include/c++/11/bits/exception_defines.h:
+/usr/include/x86_64-linux-gnu/bits/strings_fortified.h:
+
+/usr/include/asm-generic/errno.h:
+
+/usr/include/armadillo_bits/op_dotext_bones.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types.h:
+
+/usr/include/armadillo_bits/diagmat_proxy.hpp:
 
 /usr/include/armadillo_bits/mtGlue_meat.hpp:
 
-/usr/include/armadillo_bits/translate_superlu.hpp:
-
-/usr/include/c++/11/bits/erase_if.h:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:
 
 /usr/include/c++/11/bits/stl_relops.h:
 
@@ -2850,25 +2934,31 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/pymem.h:
 
-/usr/include/pthread.h:
-
-/usr/include/armadillo_bits/fn_expmat.hpp:
-
-/usr/include/c++/11/unordered_set:
-
-/usr/include/armadillo_bits/fn_eig_gen.hpp:
-
-/usr/include/armadillo_bits/op_sp_var_meat.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/types/FILE.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/time_t.h:
-
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/context.h:
-
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/ceval.h:
 
 /usr/include/armadillo_bits/fn_log_normpdf.hpp:
+
+/usr/include/c++/11/bits/stl_bvector.h:
+
+/usr/include/c++/11/sstream:
+
+/usr/include/armadillo_bits/spglue_join_bones.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
+
+/usr/include/armadillo_bits/glue_intersect_meat.hpp:
+
+/usr/include/armadillo_bits/fn_pinv.hpp:
+
+/usr/include/armadillo_bits/eOpCube_meat.hpp:
+
+/usr/include/armadillo_bits/op_det_bones.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h:
+
+/usr/include/armadillo_bits/fn_powext.hpp:
 
 /usr/include/c++/11/bits/alloc_traits.h:
 
@@ -2886,12 +2976,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/fn_cov.hpp:
 
-/usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h:
-
-/usr/include/armadillo_bits/op_powmat_meat.hpp:
-
-/usr/include/c++/11/stdlib.h:
-
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/pyport.h:
 
 /usr/include/x86_64-linux-gnu/bits/wordsize.h:
@@ -2906,13 +2990,7 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/fn_spones.hpp:
 
-/usr/include/armadillo_bits/op_symmat_meat.hpp:
-
-/usr/include/c++/11/typeindex:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
-
-/usr/include/x86_64-linux-gnu/asm/errno.h:
+/usr/include/armadillo_bits/fn_kron.hpp:
 
 /usr/include/x86_64-linux-gnu/sys/cdefs.h:
 
@@ -2934,6 +3012,10 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/x86_64-linux-gnu/bits/xopen_lim.h:
 
+/usr/include/c++/11/bits/forward_list.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
 
 /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h:
@@ -2942,23 +3024,21 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/Row_bones.hpp:
 
+/usr/include/armadillo_bits/spop_vectorise_meat.hpp:
+
+/usr/include/armadillo_bits/op_reverse_bones.hpp:
+
 /usr/include/x86_64-linux-gnu/bits/types/__sigval_t.h:
 
 /usr/include/armadillo_bits/op_fft_meat.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/abstract.h:
 
-/usr/include/armadillo_bits/def_fftw3.hpp:
-
 /home/servot82/miniconda3/lib/python3.11/site-packages/pybind11/include/pybind11/detail/descr.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/listobject.h:
-
-/usr/include/armadillo_bits/op_trimat_bones.hpp:
-
-/usr/include/armadillo_bits/fn_cond_rcond.hpp:
 
 /usr/include/x86_64-linux-gnu/bits/libm-simd-decl-stubs.h:
 
@@ -2970,11 +3050,19 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:
 
+/usr/include/c++/11/bits/erase_if.h:
+
+/usr/include/armadillo_bits/translate_superlu.hpp:
+
 /usr/include/stdint.h:
 
 /usr/include/armadillo_bits/fn_ones.hpp:
 
 /usr/include/c++/11/bits/ptr_traits.h:
+
+/usr/include/armadillo_bits/spop_norm_meat.hpp:
+
+/usr/include/armadillo_bits/op_norm_bones.hpp:
 
 /usr/include/armadillo_bits/fn_roots.hpp:
 
@@ -3026,29 +3114,27 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/op_resize_bones.hpp:
 
+/usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
+
+/usr/include/c++/11/bits/postypes.h:
+
 /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
 
 /usr/include/c++/11/bits/specfun.h:
 
 /usr/include/armadillo_bits/fn_histc.hpp:
 
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/objimpl.h:
+/usr/include/armadillo_bits/op_sum_meat.hpp:
 
-/usr/include/asm-generic/errno-base.h:
+/usr/include/armadillo_bits/op_diff_bones.hpp:
+
+/usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h:
+
+/usr/include/c++/11/bits/exception_defines.h:
 
 /usr/include/x86_64-linux-gnu/bits/select.h:
 
 /usr/include/armadillo_bits/spop_repmat_bones.hpp:
-
-/usr/include/x86_64-linux-gnu/sys/single_threaded.h:
-
-/usr/include/armadillo_bits/fn_vecnorm.hpp:
-
-/usr/include/armadillo_bits/fn_median.hpp:
-
-/usr/include/c++/11/type_traits:
-
-/usr/include/armadillo_bits/op_reverse_meat.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/utils.h:
 
@@ -3104,6 +3190,10 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/x86_64-linux-gnu/bits/fp-logb.h:
 
+/usr/include/x86_64-linux-gnu/bits/wchar2.h:
+
+/usr/include/armadillo_bits/fn_sqrtmat.hpp:
+
 /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h:
 
 /usr/include/c++/11/bits/memoryfwd.h:
@@ -3148,10 +3238,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/fn_cor.hpp:
 
-/usr/include/linux/types.h:
-
-/usr/include/armadillo_bits/fn_kron.hpp:
-
 /usr/include/c++/11/bits/stl_algo.h:
 
 /usr/include/armadillo_bits/operator_cube_plus.hpp:
@@ -3192,6 +3278,14 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/pyhash.h:
 
+/usr/include/wctype.h:
+
+/usr/include/armadillo_bits/op_cor_bones.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/types/sigevent_t.h:
+
+/usr/include/sched.h:
+
 /usr/include/x86_64-linux-gnu/bits/siginfo-consts-arch.h:
 
 /usr/include/armadillo_bits/SpGlue_bones.hpp:
@@ -3214,19 +3308,7 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/bytesobject.h:
 
-/usr/include/wctype.h:
-
-/usr/include/armadillo_bits/op_cor_bones.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/types/sigevent_t.h:
-
-/usr/include/sched.h:
-
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/unicodeobject.h:
-
-/usr/include/x86_64-linux-gnu/bits/types.h:
-
-/usr/include/armadillo_bits/diagmat_proxy.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/unicodeobject.h:
 
@@ -3240,9 +3322,9 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/boolobject.h:
 
-/usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
-
 /home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/arrayobject.h:
+
+/usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
 
 /usr/include/armadillo_bits/glue_max_bones.hpp:
 
@@ -3268,15 +3350,9 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/strip.hpp:
 
-/usr/include/armadillo_bits/translate_arpack.hpp:
-
 /usr/include/armadillo_bits/access.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/dictobject.h:
-
-/usr/include/x86_64-linux-gnu/bits/stat.h:
-
-/usr/include/armadillo_bits/translate_atlas.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/dictobject.h:
 
@@ -3291,6 +3367,14 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 /usr/include/armadillo_bits/mtSpOp_bones.hpp:
 
 /usr/include/armadillo_bits/op_sp_sum_bones.hpp:
+
+/usr/include/c++/11/ext/alloc_traits.h:
+
+/usr/include/armadillo_bits/translate_fftw3.hpp:
+
+/usr/include/armadillo_bits/SpCol_bones.hpp:
+
+/usr/include/x86_64-linux-gnu/bits/sched.h:
 
 /usr/include/armadillo_bits/newarp_SymEigsSolver_meat.hpp:
 
@@ -3348,55 +3432,31 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/c++/11/bits/move.h:
 
-/usr/include/c++/11/ext/alloc_traits.h:
+/usr/include/armadillo_bits/def_lapack.hpp:
 
-/usr/include/armadillo_bits/translate_fftw3.hpp:
+/usr/include/armadillo_bits/def_superlu.hpp:
 
-/usr/include/armadillo_bits/SpCol_bones.hpp:
+/usr/include/armadillo_bits/fn_cond_rcond.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/sched.h:
+/usr/include/armadillo_bits/op_trimat_bones.hpp:
 
-/home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/npy_cpu.h:
+/usr/include/armadillo_bits/fn_randg.hpp:
 
-/usr/include/armadillo_bits/op_shuffle_meat.hpp:
+/usr/include/armadillo_bits/fn_wishrnd.hpp:
 
-/usr/include/armadillo_bits/op_dotext_bones.hpp:
+/usr/include/armadillo_bits/def_fftw3.hpp:
 
-/usr/include/asm-generic/errno.h:
+/usr/include/armadillo_bits/op_row_as_mat_meat.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h:
+/usr/include/x86_64-linux-gnu/bits/stat.h:
 
-/usr/include/armadillo_bits/op_toeplitz_meat.hpp:
+/usr/include/armadillo_bits/translate_atlas.hpp:
 
-/usr/include/x86_64-linux-gnu/asm/posix_types_64.h:
+/usr/include/c++/11/cxxabi.h:
 
-/usr/include/armadillo_bits/SpValProxy_meat.hpp:
+/usr/include/armadillo_bits/translate_lapack.hpp:
 
-/usr/include/x86_64-linux-gnu/bits/cpu-set.h:
-
-/usr/include/c++/11/bits/stl_bvector.h:
-
-/usr/include/c++/11/sstream:
-
-/usr/include/armadillo_bits/spglue_join_bones.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
-
-/usr/include/armadillo_bits/glue_intersect_meat.hpp:
-
-/usr/include/armadillo_bits/fn_pinv.hpp:
-
-/usr/include/armadillo_bits/eOpCube_meat.hpp:
-
-/usr/include/armadillo_bits/op_det_bones.hpp:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
-
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/modsupport.h:
-
-/usr/include/armadillo_bits/spglue_kron_bones.hpp:
-
-/usr/include/armadillo_bits/fn_trunc_exp.hpp:
+/usr/include/armadillo_bits/translate_arpack.hpp:
 
 /usr/include/armadillo_bits/podarray_bones.hpp:
 
@@ -3418,6 +3478,10 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/op_powmat_bones.hpp:
 
+/usr/include/armadillo_bits/spop_trimat_meat.hpp:
+
+/usr/include/armadillo_bits/SpSubview_bones.hpp:
+
 /usr/include/armadillo_bits/op_row_as_mat_bones.hpp:
 
 /usr/include/armadillo_bits/SpSubview_col_list_bones.hpp:
@@ -3425,8 +3489,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 /usr/include/armadillo_bits/op_logmat_meat.hpp:
 
 /usr/include/armadillo_bits/MapMat_bones.hpp:
-
-/usr/include/armadillo_bits/spop_normalise_meat.hpp:
 
 /usr/include/armadillo_bits/typedef_mat_fixed.hpp:
 
@@ -3462,8 +3524,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/subview_cube_each_meat.hpp:
 
-/usr/include/armadillo_bits/spop_diagmat_meat.hpp:
-
 /usr/include/armadillo_bits/subview_each_bones.hpp:
 
 /usr/include/armadillo_bits/subview_cube_each_bones.hpp:
@@ -3473,10 +3533,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 /usr/include/armadillo_bits/hdf5_name.hpp:
 
 /usr/include/armadillo_bits/glue_times_misc_meat.hpp:
-
-/home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/cpython/tupleobject.h:
-
-/usr/include/armadillo_bits/Col_meat.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/include/python3.10/classobject.h:
 
@@ -3623,8 +3679,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 /usr/include/armadillo_bits/op_norm2est_bones.hpp:
 
 /usr/include/armadillo_bits/arma_ostream_meat.hpp:
-
-/usr/include/armadillo_bits/spop_htrans_meat.hpp:
 
 /usr/include/armadillo_bits/op_range_bones.hpp:
 
@@ -3798,10 +3852,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/operator_schur.hpp:
 
-/usr/include/armadillo_bits/op_norm_bones.hpp:
-
-/usr/include/armadillo_bits/spop_norm_meat.hpp:
-
 /usr/include/c++/11/cctype:
 
 /usr/include/armadillo_bits/operator_relational.hpp:
@@ -3848,6 +3898,10 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 
 /usr/include/armadillo_bits/op_sort_meat.hpp:
 
+/usr/include/armadillo_bits/glue_relational_meat.hpp:
+
+/usr/include/armadillo_bits/fn_inv_sympd.hpp:
+
 /home/servot82/miniconda3/lib/python3.11/site-packages/pybind11/include/pybind11/pybind11.h:
 
 /usr/include/armadillo_bits/fn_trace.hpp:
@@ -3869,8 +3923,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 /usr/include/armadillo_bits/fn_eig_pair.hpp:
 
 /usr/include/armadillo_bits/fn_lu.hpp:
-
-/usr/include/armadillo_bits/spop_misc_meat.hpp:
 
 /usr/include/armadillo_bits/spglue_schur_bones.hpp:
 
@@ -3975,12 +4027,6 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx:
 /usr/include/armadillo_bits/fn_interp1.hpp:
 
 /usr/include/armadillo_bits/fn_qz.hpp:
-
-/usr/include/armadillo_bits/fn_sqrtmat.hpp:
-
-/usr/include/armadillo_bits/fn_inv_sympd.hpp:
-
-/usr/include/armadillo_bits/glue_relational_meat.hpp:
 
 /home/servot82/miniconda3/envs/pilot-benchmark/lib/python3.10/site-packages/numpy/core/include/numpy/__multiarray_api.h:
 
@@ -4265,19 +4311,3 @@ CMakeFiles/cpilot.dir/cmake_pch.hxx.cxx:
 /usr/include/armadillo_bits/gmm_diag_meat.hpp:
 
 /usr/include/armadillo_bits/spop_strans_meat.hpp:
-
-/usr/include/armadillo_bits/SpSubview_bones.hpp:
-
-/usr/include/armadillo_bits/spop_trimat_meat.hpp:
-
-/usr/include/armadillo_bits/spop_symmat_meat.hpp:
-
-/usr/include/armadillo_bits/glue_polyfit_meat.hpp:
-
-/usr/include/armadillo_bits/spop_reverse_meat.hpp:
-
-/usr/include/armadillo_bits/spop_repmat_meat.hpp:
-
-/usr/include/armadillo_bits/op_reverse_bones.hpp:
-
-/usr/include/armadillo_bits/spop_vectorise_meat.hpp:

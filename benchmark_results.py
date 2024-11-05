@@ -36,31 +36,27 @@ def store_results(experiment_name):
     COLUMN_ORDER = [
         "CART",
         "PILOT",
-        "PILOT - no blin",
         "CPILOT",
-        "CPILOT - no blin",
         "RF",
         "PF",
-        "PF - no blin",
         "CPF",
-        "CPF - no blin",
         "XGB",
     ]
     experiment_folder = output_folder / experiment_name
     results = pd.read_csv(experiment_folder / "results.csv")
     scores = results.groupby(["id", "name", "model"])["r2"].mean().unstack()
-    column_order = [c for c in COLUMN_ORDER if c in scores.columns]
-    if len(column_order) != len(COLUMN_ORDER):
-        print(
-            f"WARNING: ignoring columns as they are not in the results: "
-            f"{set(COLUMN_ORDER) - set(column_order)}"
-        )
+    column_order = [
+        column for c in COLUMN_ORDER for column in scores.columns if column.startswith(c)
+    ]
     scores = scores.loc[:, column_order]
 
-    scores = scores.style.apply(highlight_max, axis=1).format("{:.2f}")
-
-    scores.to_html(experiment_folder / "r2_scores.html")
-    dfi.export(scores, experiment_folder / "r2_scores.png", table_conversion="matplotlib")
+    # scores.to_html(experiment_folder / "r2_scores.html")
+    dfi.export(
+        scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
+        experiment_folder / "r2_scores.png",
+        table_conversion="matplotlib",
+        max_cols=50,
+    )
 
     times = (
         results.groupby(["id", "name", "n_samples", "n_features", "model"])["fit_duration"]
@@ -71,8 +67,25 @@ def store_results(experiment_name):
     times = times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
         "{:.2f}"
     )
-    times.to_html(experiment_folder / "fit_duration.html")
-    dfi.export(times, experiment_folder / "fit_duration.png", table_conversion="matplotlib")
+    # times.to_html(experiment_folder / "fit_duration.html")
+    dfi.export(
+        times, experiment_folder / "fit_duration.png", table_conversion="matplotlib", max_cols=50
+    )
+
+    aggregated_scores = pd.concat(
+        [
+            scores[[c for c in scores.columns if c.startswith(m)]].max(axis=1).rename(m)
+            for m in COLUMN_ORDER
+            if any([c.startswith(m) for c in scores.columns])
+        ],
+        axis=1,
+    )
+    dfi.export(
+        aggregated_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
+        experiment_folder / "agg_r2_scores.png",
+        table_conversion="matplotlib",
+        max_cols=50,
+    )
 
 
 if __name__ == "__main__":
