@@ -1,3 +1,0 @@
-/home/servot82/PILOT/build/CMakeFiles/cpilot.dir
-/home/servot82/PILOT/build/CMakeFiles/edit_cache.dir
-/home/servot82/PILOT/build/CMakeFiles/rebuild_cache.dir

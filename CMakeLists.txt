@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
 project(pilot_wrapper)
 
+set(pybind11_DIR /anaconda/envs/pilot-benchmark/lib/python3.10/site-packages/pybind11/share/cmake/pybind11)
 set(CMAKE_CXX_STANDARD 17)
-set(pybind11_DIR /home/servot82/miniconda3/lib/python3.11/site-packages/pybind11/share/cmake/pybind11)
 
 find_package(pybind11 REQUIRED)
 find_package(Armadillo REQUIRED)

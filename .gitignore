@@ -6,3 +6,4 @@ Output/archive
 !Output/**/*.csv
 pyrightconfig.json
 *.pyc
+build/
