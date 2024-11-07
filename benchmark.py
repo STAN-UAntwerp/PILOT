@@ -1,5 +1,6 @@
 import pathlib
 import click
+import psutil
 import itertools
 import numpy as np
 import pandas as pd
@@ -56,6 +57,7 @@ def run_benchmark(experiment_name):
         )
         for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
             print(f"\tFold {i} / 5")
+            print('\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
             train_dataset = dataset.subset(train)
             test_dataset = dataset.subset(test)
 
@@ -129,7 +131,7 @@ def run_benchmark(experiment_name):
             #     regression_nodes=["con", "lin", "pcon", "plin"],
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
-            for i, ((df_name, df_setting), max_depth, max_features) in enumerate(
+            for j, ((df_name, df_setting), max_depth, max_features) in enumerate(
                 itertools.product(
                     [
                         ("default df", DEFAULT_DF_SETTINGS),
@@ -164,6 +166,7 @@ def run_benchmark(experiment_name):
                         df_setting=df_setting,
                     )
                 )
+                print('\t\t\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
 
             # XGB
             print("\t\tXGB")

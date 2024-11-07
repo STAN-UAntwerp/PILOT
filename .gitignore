@@ -9,3 +9,5 @@ pyrightconfig.json
 build/
 CMakeLists.txt
 pilot/cpilot.cpython-310-x86_64-linux-gnu.so
+screenlog.0
+benchmark_logs.txt

@@ -65,12 +65,11 @@ def store_results(experiment_name):
         .unstack()
         .loc[:, column_order]
     )
-    times = times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
-        "{:.2f}"
-    )
     # times.to_html(experiment_folder / "fit_duration.html")
     dfi.export(
-        times, experiment_folder / "fit_duration.png", table_conversion="matplotlib", max_cols=50
+        times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
+        "{:.2f}"
+    ), experiment_folder / "fit_duration.png", table_conversion="matplotlib", max_cols=50
     )
 
     aggregated_scores = pd.concat(
@@ -89,18 +88,6 @@ def store_results(experiment_name):
     )
 
     cpf_scores = scores[[c for c in scores.columns if c.startswith("CPF")]].T
-    dfi.export(
-        cpf_scores.style.apply(highlight_max, axis=0).format("{:.2f}"),
-        experiment_folder / "cpf_r2_scores.png",
-        table_conversion="matplotlib",
-    )
-    cpf_scores = (
-        np.argsort(np.argsort(-cpf_scores, axis=0), axis=0)
-        .mean(axis=1)
-        .rename("average_rank")
-        .to_frame()
-    )
-
     cpf_scores = cpf_scores.assign(
         excl_blin=cpf_scores.index.map(lambda x: "no blin" in x),
         alpha=cpf_scores.index.map(lambda x: 0.01 if "alpha" in x else 1),
@@ -108,11 +95,37 @@ def store_results(experiment_name):
         max_node_features=cpf_scores.index.map(
             lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
         ),
+    ).reset_index(drop=True).set_index(['excl_blin', 'alpha', 'max_depth', 'max_node_features']).T
+    dfi.export(
+        cpf_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
+        experiment_folder / "cpf_r2_scores.png",
+        table_conversion="matplotlib",
+    )
+    cpf_ranks = (
+        np.argsort(np.argsort(-cpf_scores, axis=1), axis=1)
+        .mean(axis=0)
+        .rename("average_rank")
+        .to_frame()
     )
 
     dfi.export(
-        cpf_scores.reset_index(drop=True).style,
+        cpf_ranks.style,
         experiment_folder / "cpf_avg_rank.png",
+        table_conversion="matplotlib",
+    )
+    
+    cpf_times = times[[c for c in times.columns if c.startswith("CPF")]].T
+    cpf_times = cpf_times.assign(
+        excl_blin=cpf_times.index.map(lambda x: "no blin" in x),
+        alpha=cpf_times.index.map(lambda x: 0.01 if "alpha" in x else 1),
+        max_depth=cpf_times.index.map(lambda x: re.search(r"max_depth = (\d+)", x).group(1)),
+        max_node_features=cpf_times.index.map(
+            lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
+        ),
+    ).reset_index(drop=True).set_index(['excl_blin', 'alpha', 'max_depth', 'max_node_features']).T
+    dfi.export(
+        cpf_times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format("{:.2f}"),
+        experiment_folder / "cpf_times.png",
         table_conversion="matplotlib",
     )
 
