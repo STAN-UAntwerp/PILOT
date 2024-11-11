@@ -11,7 +11,7 @@ from dataclasses import dataclass, asdict, field
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error, median_absolute_error
 from ucimlrepo import fetch_ucirepo
 
 from pilot import PILOT, CPILOT
@@ -72,6 +72,8 @@ class Dataset:
 @dataclass
 class FitResult:
     r2: float
+    mse: float
+    mae: float
     fit_duration: float
     predict_duration: float
     kwargs: dict[str, Any] = field(default_factory=dict)
@@ -179,7 +181,9 @@ def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
     y_pred = model.predict(test_dataset.X_oh_encoded)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
 def fit_pilot(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
@@ -194,7 +198,9 @@ def fit_pilot(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> F
     y_pred = model.predict(test_dataset.X_label_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
 def fit_cpilot(
@@ -237,7 +243,9 @@ def fit_cpilot(
     y_pred = model.predict(test_dataset.X_label_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
 def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
@@ -248,7 +256,9 @@ def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwar
     y_pred = model.predict(test_dataset.X_oh_encoded)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
 def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
@@ -264,7 +274,9 @@ def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwarg
     y_pred = model.predict(test_dataset.X_label_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
 
 
 def fit_cpilot_forest(
@@ -308,12 +320,39 @@ def fit_cpilot_forest(
     y_pred = model.predict(test_dataset.X_label_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    # mean tree depth
+    depths = pd.concat([e.tree_summary()[['depth', 'model_depth']].max().to_frame().T for e in model.estimators]).agg(['mean', 'max'])
+    
+    return FitResult(
+        r2=r2, 
+        mse=mse, 
+        mae=mae, 
+        fit_duration=t2 - t1, 
+        predict_duration=t3 - t2,
+        kwargs=dict(
+            mean_tree_depth=depths.loc['mean', 'depth'],
+            max_tree_depth=depths.loc['max', 'depth'],
+            mean_tree_model_depth=depths.loc['mean', 'model_depth'],
+            max_tree_model_depth=depths.loc['max', 'model_depth']
+        )
+    )
 
 
-def fit_xgboost(train_dataset: Dataset, test_dataset: Dataset, max_depth: int = 6) -> FitResult:
+def fit_xgboost(
+    train_dataset: Dataset, 
+    test_dataset: Dataset, 
+    max_depth: int = 6, 
+    max_node_features: float = 1,
+    n_estimators: int = 100
+) -> FitResult:
     t1 = time.time()
-    model = xgb.XGBRegressor(max_depth=max_depth)
+    model = xgb.XGBRegressor(
+        max_depth=max_depth, 
+        colsample_bynode=max_node_features, 
+        n_estimators=n_estimators
+    )
     model.fit(
         train_dataset.X_oh_encoded.values,
         train_dataset.y.values,
@@ -322,4 +361,6 @@ def fit_xgboost(train_dataset: Dataset, test_dataset: Dataset, max_depth: int = 
     y_pred = model.predict(test_dataset.X_oh_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
-    return FitResult(r2=r2, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)

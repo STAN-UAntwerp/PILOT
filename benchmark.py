@@ -1,5 +1,6 @@
 import pathlib
 import click
+import re
 import psutil
 import itertools
 import numpy as np
@@ -20,8 +21,18 @@ df_setting_alpha01 = dict(
     )
 )
 
+df_setting_alpha5 = dict(
+    zip(
+        DEFAULT_DF_SETTINGS.keys(),
+        1 + 0.5 * (np.array(list(DEFAULT_DF_SETTINGS.values())) - 1),
+    )
+)
+
 df_setting_alpha01_no_blin = df_setting_alpha01.copy()
 df_setting_alpha01_no_blin["blin"] = -1
+
+df_setting_alpha5_no_blin = df_setting_alpha5.copy()
+df_setting_alpha5_no_blin["blin"] = -1
 
 df_setting_no_blin = DEFAULT_DF_SETTINGS.copy()
 df_setting_no_blin["blin"] = -1
@@ -95,20 +106,27 @@ def run_benchmark(experiment_name):
             results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
 
             # RF
-            print("\t\tRF")
-            r = fit_random_forest(
-                train_dataset=train_dataset, test_dataset=test_dataset, n_estimators=100
-            )
-            results.append(dict(**dataset.summary(), fold=i, model="RF", **r.asdict()))
-
-            print("\t\tRF - max_depth = 6")
-            r = fit_random_forest(
-                train_dataset=train_dataset,
-                test_dataset=test_dataset,
-                n_estimators=100,
-                max_depth=6,
-            )
-            results.append(dict(**dataset.summary(), fold=i, model="RF", **r.asdict()))
+            for md, mf, nt in itertools.product([None], [0.7, 1], [20, 50, 100]):
+                model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
+                print(f"\t\t{model_name}")
+                r = fit_random_forest(
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    n_estimators=nt,
+                    max_depth=md,
+                    max_features=mf,
+                )
+                results.append(
+                    dict(
+                        **dataset.summary(), 
+                        fold=i, 
+                        model=model_name, 
+                        **r.asdict(), 
+                        max_depth=md, 
+                        max_features=mf,
+                        n_estimators=nt
+                    )
+                )
 
             # # PF
             # r = fit_pilot_forest(
@@ -131,24 +149,27 @@ def run_benchmark(experiment_name):
             #     regression_nodes=["con", "lin", "pcon", "plin"],
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
-            for j, ((df_name, df_setting), max_depth, max_features) in enumerate(
+            for j, ((df_name, alpha, df_setting), max_depth, max_features, ntrees) in enumerate(
                 itertools.product(
                     [
-                        ("default df", DEFAULT_DF_SETTINGS),
-                        ("df alpha = 0.01", df_setting_alpha01),
-                        ("df alpha = 0.01, no blin", df_setting_alpha01_no_blin),
-                        ("df no blin", df_setting_no_blin),
+                        # ("default df", 1, DEFAULT_DF_SETTINGS),
+                        # ("df alpha = 0.01", 0.01, df_setting_alpha01),
+                        ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
+                        ("df no blin", 1, df_setting_no_blin),
+                        # ("df alpha = 0.5", 0.5, df_setting_alpha5),
+                        ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
                     ],
-                    [6, 20],
+                    [20],
                     [0.7, 1],
+                    [20, 50, 100]
                 )
             ):
-                model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features}"
+                model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features} - n_estimators = {ntrees}"
                 print(f"\t\t{model_name}")
                 r = fit_cpilot_forest(
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
-                    n_estimators=100,
+                    n_estimators=ntrees,
                     min_sample_leaf=1,
                     min_sample_alpha=2,
                     min_sample_fit=2,
@@ -162,23 +183,37 @@ def run_benchmark(experiment_name):
                         fold=i,
                         model=model_name,
                         **r.asdict(),
-                        max_depth=max_depth,
                         df_setting=df_setting,
+                        excl_blin="no_blin" in df_name,
+                        alpha=alpha,
+                        max_depth=max_depth,
+                        max_features=max_features,
+                        n_estimators=ntrees
                     )
                 )
-                print('\t\t\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
 
             # XGB
-            print("\t\tXGB")
-            r = fit_xgboost(train_dataset=train_dataset, test_dataset=test_dataset)
-            results.append(dict(**dataset.summary(), fold=i, model="XGB", **r.asdict()))
-
-            # XGB
-            print("\t\tXGB - max_depth = 20")
-            r = fit_xgboost(train_dataset=train_dataset, test_dataset=test_dataset, max_depth=20)
-            results.append(
-                dict(**dataset.summary(), fold=i, model="XGB - max_depth = 20", **r.asdict())
-            )
+            for md, mf, nt in itertools.product([6], [0.7, 1], [20, 50, 100]):
+                model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
+                print(f"\t\t{model_name}")
+                r = fit_xgboost(
+                    train_dataset=train_dataset, 
+                    test_dataset=test_dataset, 
+                    max_depth=md, 
+                    max_node_features=mf,
+                    n_estimators=nt
+                )
+                results.append(
+                    dict(
+                        **dataset.summary(), 
+                        fold=i, 
+                        model=model_name, 
+                        **r.asdict(), 
+                        max_depth=md, 
+                        max_features=mf,
+                        n_estimators=nt
+                    )
+                )
 
         pd.DataFrame(results).to_csv(experiment_file, index=False)
 
