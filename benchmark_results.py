@@ -45,7 +45,7 @@ def store_results(experiment_name):
     ]
     experiment_folder = output_folder / experiment_name
     results = pd.read_csv(experiment_folder / "results.csv")
-    results = results.assign(mainmodel=results["model"].str.split('-').str[0])
+    results = results.assign(mainmodel=results["model"].str.split("-").str[0])
     scores = results.groupby(["id", "name", "model"])["r2"].mean().unstack()
     column_order = [
         column for c in COLUMN_ORDER for column in scores.columns if column.startswith(c)
@@ -69,8 +69,11 @@ def store_results(experiment_name):
     # times.to_html(experiment_folder / "fit_duration.html")
     dfi.export(
         times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
-        "{:.2f}"
-    ), experiment_folder / "fit_duration.png", table_conversion="matplotlib", max_cols=50
+            "{:.2f}"
+        ),
+        experiment_folder / "fit_duration.png",
+        table_conversion="matplotlib",
+        max_cols=50,
     )
 
     aggregated_scores = pd.concat(
@@ -89,69 +92,88 @@ def store_results(experiment_name):
     )
 
     cpf_scores = scores[[c for c in scores.columns if c.startswith("CPF")]].T
-    cpf_scores = cpf_scores.assign(
-        excl_blin=cpf_scores.index.map(lambda x: "no blin" in x),
-        alpha=cpf_scores.index.map(
-            lambda x: re.search(r"alpha = ([\d.]+)", x).group(1) if "alpha" in x else 1
-        ),
-        max_depth=cpf_scores.index.map(lambda x: re.search(r"max_depth = (\d+)", x).group(1)),
-        max_node_features=cpf_scores.index.map(
-            lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
-        ),
-        n_estimators=cpf_scores.index.map(lambda x: re.search(r"n_estimators = (\d+)", x).group(1))
-    ).reset_index(drop=True).set_index(['excl_blin', 'alpha', 'max_depth', 'max_node_features', 'n_estimators']).T
+    cpf_scores = (
+        cpf_scores.assign(
+            excl_blin=cpf_scores.index.map(lambda x: "no blin" in x),
+            alpha=cpf_scores.index.map(
+                lambda x: re.search(r"alpha = ([\d.]+)", x).group(1) if "alpha" in x else 1
+            ),
+            max_depth=cpf_scores.index.map(lambda x: re.search(r"max_depth = (\d+)", x).group(1)),
+            max_node_features=cpf_scores.index.map(
+                lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
+            ),
+            n_estimators=cpf_scores.index.map(
+                lambda x: (
+                    re.search(r"n_estimators = (\d+)", x).group(1) if "n_estimators" in x else None
+                )
+            ),
+        )
+        .reset_index(drop=True)
+        .set_index(["excl_blin", "alpha", "max_depth", "max_node_features", "n_estimators"])
+        .T
+    )
     dfi.export(
         cpf_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
         experiment_folder / "cpf_r2_scores.png",
         table_conversion="matplotlib",
-        max_cols=50
+        max_cols=50,
     )
     cpf_ranks = pd.DataFrame(
-        {'average_R2_ratio': (
-            np.nanmean(
-                np.where(
-                    cpf_scores < 0, 
-                    np.NaN, 
-                    cpf_scores
-                ) / cpf_scores.max(axis=1).values.reshape(-1, 1)
-            , axis=0)
+        {
+            "average_R2_ratio": (
+                np.nanmean(
+                    np.where(cpf_scores < 0, np.NaN, cpf_scores)
+                    / cpf_scores.max(axis=1).values.reshape(-1, 1),
+                    axis=0,
+                )
             )
-        }, 
-        index=cpf_scores.columns
+        },
+        index=cpf_scores.columns,
     )
 
     dfi.export(
         cpf_ranks.style,
         experiment_folder / "cpf_avg_rank.png",
         table_conversion="matplotlib",
-        max_cols=50
+        max_cols=50,
     )
-    
+
     cpf_ranks = cpf_ranks.reset_index()
-    for c in ['excl_blin', 'alpha', 'max_depth', 'max_node_features', 'n_estimators']:
+    for c in ["excl_blin", "alpha", "max_depth", "max_node_features", "n_estimators"]:
         dfi.export(
-            cpf_ranks.groupby(c)['average_R2_ratio'].mean().to_frame().style, 
-            experiment_folder / f"cpf_avg_rank_{c}.png", 
-            table_conversion='matplotlib'
+            cpf_ranks.groupby(c)["average_R2_ratio"].mean().to_frame().style,
+            experiment_folder / f"cpf_avg_rank_{c}.png",
+            table_conversion="matplotlib",
         )
-    
+
     cpf_times = times[[c for c in times.columns if c.startswith("CPF")]].T
-    cpf_times = cpf_times.assign(
-        excl_blin=cpf_times.index.map(lambda x: "no blin" in x),
-        alpha=cpf_times.index.map(
-            lambda x: re.search(r"alpha = ([\d.]+)", x).group(1) if "alpha" in x else 1
-        ),
-        max_depth=cpf_times.index.map(lambda x: re.search(r"max_depth = (\d+)", x).group(1)),
-        max_node_features=cpf_times.index.map(
-            lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
-        ),
-        n_estimators=cpf_times.index.map(lambda x: re.search(r"n_estimators = (\d+)", x).group(1))
-    ).reset_index(drop=True).set_index(['excl_blin', 'alpha', 'max_depth', 'max_node_features', 'n_estimators']).T
+    cpf_times = (
+        cpf_times.assign(
+            excl_blin=cpf_times.index.map(lambda x: "no blin" in x),
+            alpha=cpf_times.index.map(
+                lambda x: re.search(r"alpha = ([\d.]+)", x).group(1) if "alpha" in x else 1
+            ),
+            max_depth=cpf_times.index.map(lambda x: re.search(r"max_depth = (\d+)", x).group(1)),
+            max_node_features=cpf_times.index.map(
+                lambda x: re.search(r"max_node_features = ([\d.]+)", x).group(1)
+            ),
+            n_estimators=cpf_times.index.map(
+                lambda x: (
+                    re.search(r"n_estimators = (\d+)", x).group(1) if "n_estimators" in x else None
+                )
+            ),
+        )
+        .reset_index(drop=True)
+        .set_index(["excl_blin", "alpha", "max_depth", "max_node_features", "n_estimators"])
+        .T
+    )
     dfi.export(
-        cpf_times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format("{:.2f}"),
+        cpf_times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
+            "{:.2f}"
+        ),
         experiment_folder / "cpf_times.png",
         table_conversion="matplotlib",
-        max_cols=50
+        max_cols=50,
     )
 
 

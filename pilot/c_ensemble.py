@@ -100,6 +100,18 @@ class RandomForestCPilot(BaseEstimator):
         self.precision_scale = precision_scale
 
     def fit(self, X, y, categorical_idx=None, n_workers: int = 1):
+        """Fit a random forest ensemble of PILOT trees.
+
+        Args:
+            X (pd.DataFrame | np.ndarray): Feature data.
+                Categorical features need to be label encoded.
+            y (pd.Series | np.ndarray): Target values
+            categorical_idx (Iterable[int] | None, optional):
+                (numerical) indices of categorical features.
+                If any index is -1, all features are considered numerical.
+                Defaults to None, i.e. no all features are considered numerical.
+            n_workers (int, optional): > 1 not supported a.t.m.. Defaults to 1.
+        """
 
         categorical = np.zeros(X.shape[1], dtype=int)
         if categorical_idx is not None and not (categorical_idx == -1).any():
@@ -161,11 +173,12 @@ class RandomForestCPilot(BaseEstimator):
         # filter failed estimators
         self.estimators = [e for e in self.estimators if e is not None]
 
-    def predict(self, X) -> np.ndarray:
+    def predict(self, X, individual: bool = False) -> np.ndarray:
         X = np.array(X)
-        return np.concatenate([e.predict(X).reshape(-1, 1) for e in self.estimators], axis=1).mean(
-            axis=1
-        )
+        predictions = np.concatenate([e.predict(X).reshape(-1, 1) for e in self.estimators], axis=1)
+        if individual:
+            return predictions
+        return predictions.mean(axis=1)
 
 
 def _fit_single_estimator(estimator, X: np.ndarray, y: np.ndarray, categorical_idx: np.ndarray):
