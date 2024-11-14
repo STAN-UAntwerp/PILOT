@@ -58,6 +58,7 @@ def store_results(experiment_name):
         experiment_folder / "r2_scores.png",
         table_conversion="matplotlib",
         max_cols=50,
+        max_rows=150,
     )
 
     times = (
@@ -74,6 +75,7 @@ def store_results(experiment_name):
         experiment_folder / "fit_duration.png",
         table_conversion="matplotlib",
         max_cols=50,
+        max_rows=150
     )
 
     aggregated_scores = pd.concat(
@@ -89,6 +91,7 @@ def store_results(experiment_name):
         experiment_folder / "agg_r2_scores.png",
         table_conversion="matplotlib",
         max_cols=50,
+        max_rows=150
     )
 
     cpf_scores = scores[[c for c in scores.columns if c.startswith("CPF")]].T
@@ -117,6 +120,7 @@ def store_results(experiment_name):
         experiment_folder / "cpf_r2_scores.png",
         table_conversion="matplotlib",
         max_cols=50,
+        max_rows=150
     )
     cpf_ranks = pd.DataFrame(
         {
@@ -136,6 +140,7 @@ def store_results(experiment_name):
         experiment_folder / "cpf_avg_rank.png",
         table_conversion="matplotlib",
         max_cols=50,
+        max_rows=150
     )
 
     cpf_ranks = cpf_ranks.reset_index()
@@ -174,6 +179,7 @@ def store_results(experiment_name):
         experiment_folder / "cpf_times.png",
         table_conversion="matplotlib",
         max_cols=50,
+        max_rows=150,
     )
 
 

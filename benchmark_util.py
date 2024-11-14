@@ -5,7 +5,7 @@ import joblib
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-from typing import Any
+from typing import Any, Literal
 from retry import retry
 from dataclasses import dataclass, asdict, field
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
@@ -13,6 +13,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_squared_error, median_absolute_error
 from ucimlrepo import fetch_ucirepo
+from pmlb import fetch_data
 
 from pilot import PILOT, CPILOT
 from pilot.ensemble import RandomForestPilot
@@ -84,23 +85,11 @@ class FitResult:
         d.update(self.kwargs)
         return d
 
-
-@retry(ConnectionError, tries=5, delay=10)
-def load_data(
-    repo_id: int,
+def _load_uci_data(
+    repo_id: int, 
     ignore_feat: list[str] | None = None,
-    use_download: bool = True,
-    logtransform_target: bool = False,
-) -> Dataset:
-    if use_download:
-        path = pathlib.Path(__file__).parent.resolve() / "Data" / f"{repo_id}.pkl"
-        if path.exists():
-            print(f"Loading data from {path}")
-            dataset = joblib.load(path)
-            return dataset
-        else:
-            print(f"use_dowload was True, but path {path} does not exist. Trying to download.")
-
+    logtransform_target: bool = False
+    ) -> Dataset:
     data = fetch_ucirepo(id=repo_id)
     variables = data.variables.set_index("name")
     X = data.data.features
@@ -158,7 +147,7 @@ def load_data(
     X_label_encoded = X_label_encoded.astype(np.float64)
 
     return Dataset(
-        id=repo_id,
+        id=f"uci_{repo_id}",
         name=data.metadata.name,
         X=X,
         X_oh_encoded=X_oh_encoded,
@@ -171,6 +160,122 @@ def load_data(
         rows_removed=rows_removed,
         cols_removed=cols_removed,
     )
+
+def _get_date_columns(df):
+    date_columns = []
+    for col in df.columns:
+        if df[col].dtype.kind in 'biufc':
+            continue
+        try:
+            pd.to_datetime(df[col])
+            date_columns.append(col)
+        except (ValueError, TypeError):
+            continue
+    return date_columns
+  
+def _load_pmlb_data(
+    repo_id: str, 
+    ignore_feat: list[str] | None = None,
+    logtransform_target: bool = False
+    ) -> Dataset:
+    data = fetch_data(repo_id)
+    X = data.drop(columns=['target'])
+    date_cols = _get_date_columns(X)
+    ignore_feat = ignore_feat + date_cols if ignore_feat is not None else date_cols
+    if len(ignore_feat) > 0:
+        print(f"Dropping features: {ignore_feat}")
+        X = X.drop(columns=ignore_feat)
+    X = X.replace("?", np.nan)
+    y = data['target'].astype(np.float64)
+    pd.options.mode.use_inf_as_na = True
+    rows_removed = 0
+    cols_removed = 0
+    if X.isna().any().any() or y.isna().any():
+        cols_to_remove = X.columns[X.isna().mean() > 0.5]
+        X = X.drop(columns=cols_to_remove)
+        rows_to_remove = X.index[X.isna().any(axis=1) | y.isna()]
+        X = X.drop(index=rows_to_remove)
+        y = y.loc[X.index]
+        rows_removed = len(rows_to_remove)
+        cols_removed = len(cols_to_remove)
+        print(
+            f"Removed {rows_removed} rows and {cols_removed} columns with missing values. "
+            f"{len(X)} rows  and {X.shape[1]} columns remaining."
+        )
+    pd.options.mode.use_inf_as_na = False
+
+    if logtransform_target:
+        y = np.log1p(y)
+
+    cat_ids = [
+        i
+        for i, c in enumerate(X.columns)
+        if (X[c].nunique() < 5) or (X.dtypes[c] == 'O')
+    ]
+    cat_names = X.columns[cat_ids]
+
+    oh_encoder = OneHotEncoder(sparse_output=False).fit(X[cat_names])
+    X_oh_encoded = pd.concat(
+        [
+            X.drop(columns=cat_names),
+            pd.DataFrame(
+                oh_encoder.transform(X[cat_names]),
+                columns=oh_encoder.get_feature_names_out(),
+                index=X.index,
+            ),
+        ],
+        axis=1,
+    ).astype(np.float64)
+
+    label_encoders = {col: LabelEncoder().fit(X[col]) for col in cat_names}
+    X_label_encoded = X.copy()
+    for col, le in label_encoders.items():
+        X_label_encoded.loc[:, col] = le.transform(X[col])
+    X_label_encoded = X_label_encoded.astype(np.float64)
+
+    return Dataset(
+        id=f"pmlb_{repo_id.split('_')[0]}",
+        name='_'.join(repo_id.split('_')[1:]),
+        X=X,
+        X_oh_encoded=X_oh_encoded,
+        X_label_encoded=X_label_encoded,
+        y=y,
+        cat_ids=cat_ids,
+        cat_names=cat_names,
+        oh_encoder=oh_encoder,
+        label_encoders=label_encoders,
+        rows_removed=rows_removed,
+        cols_removed=cols_removed,
+    )
+    
+    
+
+@retry(ConnectionError, tries=5, delay=10)
+def load_data(
+    repo_id: int | str,
+    ignore_feat: list[str] | None = None,
+    use_download: bool = True,
+    logtransform_target: bool = False,
+    kind: Literal['uci', 'pmlb'] = 'uci'
+) -> Dataset:
+    if use_download:
+        path = pathlib.Path(__file__).parent.resolve() / "Data" / f"{kind}_{repo_id}.pkl"
+        if path.exists():
+            print(f"Loading data from {path}")
+            dataset = joblib.load(path)
+            return dataset
+        else:
+            print(f"use_dowload was True, but path {path} does not exist. Trying to download.")
+    
+    if kind == 'uci':
+        return _load_uci_data(repo_id, ignore_feat, logtransform_target)
+    elif kind == 'pmlb':
+        return _load_pmlb_data(repo_id, ignore_feat, logtransform_target)
+    else:
+        raise ValueError(f"kind must be one of 'uci' or 'pmlb' but received {kind}")
+
+    
+    
 
 
 def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:

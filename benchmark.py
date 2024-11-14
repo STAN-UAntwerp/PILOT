@@ -1,18 +1,26 @@
 import pathlib
 import click
+import os
+import glob
 import re
 import psutil
 import itertools
 import numpy as np
 import pandas as pd
 
+from datetime import datetime
 from sklearn.model_selection import KFold
 
 from pilot import DEFAULT_DF_SETTINGS
 from benchmark_config import LOGTRANSFORM_TARGET, UCI_DATASET_IDS, IGNORE_COLUMNS
 from benchmark_util import *
 
+def print_with_timestamp(message):
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[{timestamp}] {message}")
+
 OUTPUTFOLDER = pathlib.Path(__file__).parent / "Output"
+DATAFOLDER = pathlib.Path(__file__).parent / "Data"
 
 df_setting_alpha01 = dict(
     zip(
@@ -50,30 +58,33 @@ def run_benchmark(experiment_name):
 
     if experiment_file.exists():
         results = pd.read_csv(experiment_file)
-        processed_repo_ids = results["id"].unique()
+        processed_repo_ids = results["id"].unique().astype(str)
         results = results.to_dict("records")
     else:
         results = []
         processed_repo_ids = []
 
     repo_ids_to_process = [
-        repo_id for repo_id in UCI_DATASET_IDS if repo_id not in processed_repo_ids
+        pathlib.Path(f).stem
+        for f in glob.glob(os.path.join(DATAFOLDER, '*')) 
+        if pathlib.Path(f).stem not in processed_repo_ids
     ]
+
     for repo_id in repo_ids_to_process:
-        print(repo_id)
-        dataset = load_data(
-            repo_id,
-            ignore_feat=IGNORE_COLUMNS.get(repo_id),
-            logtransform_target=(repo_id in LOGTRANSFORM_TARGET),
-        )
+        print_with_timestamp(repo_id)
+        kind, repo_id = repo_id.split('_')
+        dataset = load_data(repo_id=repo_id, kind=kind)
+        if dataset.n_samples > 1e5:
+            print_with_timestamp(f"Skipping large dataset {repo_id}")
+            continue
         for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
-            print(f"\tFold {i} / 5")
+            print_with_timestamp(f"\tFold {i} / 5")
             print('\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
             train_dataset = dataset.subset(train)
             test_dataset = dataset.subset(test)
 
             # CART
-            print("\t\tCART")
+            print_with_timestamp("\t\tCART")
             r = fit_cart(train_dataset=train_dataset, test_dataset=test_dataset)
             results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
 
@@ -97,7 +108,7 @@ def run_benchmark(experiment_name):
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
 
-            print("\t\tCPILOT")
+            print_with_timestamp("\t\tCPILOT")
             r = fit_cpilot(
                 train_dataset=train_dataset,
                 test_dataset=test_dataset,
@@ -106,9 +117,9 @@ def run_benchmark(experiment_name):
             results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
 
             # RF
-            for md, mf, nt in itertools.product([None], [0.7, 1], [20, 50, 100]):
+            for md, mf, nt in itertools.product([None], [1], [100]):
                 model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
-                print(f"\t\t{model_name}")
+                print_with_timestamp(f"\t\t{model_name}")
                 r = fit_random_forest(
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
@@ -154,18 +165,18 @@ def run_benchmark(experiment_name):
                     [
                         # ("default df", 1, DEFAULT_DF_SETTINGS),
                         # ("df alpha = 0.01", 0.01, df_setting_alpha01),
-                        ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
-                        ("df no blin", 1, df_setting_no_blin),
+                        # ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
+                        # ("df no blin", 1, df_setting_no_blin),
                         # ("df alpha = 0.5", 0.5, df_setting_alpha5),
                         ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
                     ],
                     [20],
-                    [0.7, 1],
-                    [20, 50, 100]
+                    [1],
+                    [100]
                 )
             ):
                 model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features} - n_estimators = {ntrees}"
-                print(f"\t\t{model_name}")
+                print_with_timestamp(f"\t\t{model_name}")
                 r = fit_cpilot_forest(
                     train_dataset=train_dataset,
                     test_dataset=test_dataset,
@@ -193,9 +204,9 @@ def run_benchmark(experiment_name):
                 )
 
             # XGB
-            for md, mf, nt in itertools.product([6], [0.7, 1], [20, 50, 100]):
+            for md, mf, nt in itertools.product([20], [1], [100]):
                 model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
-                print(f"\t\t{model_name}")
+                print_with_timestamp(f"\t\t{model_name}")
                 r = fit_xgboost(
                     train_dataset=train_dataset, 
                     test_dataset=test_dataset, 
