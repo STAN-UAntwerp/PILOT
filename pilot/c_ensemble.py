@@ -17,6 +17,7 @@ class CPILOTWrapper(CPILOT):
         max_depth=20,
         max_model_depth=100,
         max_features=-1,  # -1 means that it must be set
+        approx=0,  # 0 means no approximation, otherwise interpreted as max pivots per feature
         rel_tolerance=0.01,
         precision_scale=1e-10,
     ):
@@ -30,6 +31,7 @@ class CPILOTWrapper(CPILOT):
             max_depth,
             max_model_depth,
             max_features,
+            approx,
             rel_tolerance,
             precision_scale,
         )
