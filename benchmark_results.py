@@ -181,6 +181,58 @@ def store_results(experiment_name):
         max_cols=50,
         max_rows=150,
     )
+    
+    COLUMN_ORDER = [
+        "CART",
+        "CPILOT",
+        "RF",
+        "CPF",
+        "Default CPF",
+        "XGB",
+    ]
+    scores = results.groupby(["id", "name", "model"])["r2"].mean().unstack()
+    scores = scores.rename(columns={'CPF - df alpha = 0.5, no blin - max_depth = 20 - max_node_features = 1 - n_estimators = 100': 'Default CPF'})
+    column_order = [
+        column for c in COLUMN_ORDER for column in scores.columns if column.startswith(c)
+    ]
+    scores = scores.loc[:, column_order]
+
+    aggregated_scores = pd.concat(
+        [
+            scores[[c for c in scores.columns if m in c]].max(axis=1).rename(m)
+            for m in COLUMN_ORDER
+            if any([c.startswith(m) for c in scores.columns])
+        ],
+        axis=1,
+    )
+    dfi.export(
+        aggregated_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
+        experiment_folder / "agg_r2_scores_with_default_CPF.png",
+        table_conversion="matplotlib",
+        max_cols=50,
+        max_rows=150
+    )
+    
+    relative_scores = (
+        aggregated_scores.clip(0, 1) 
+        / aggregated_scores.clip(0, 1).max(axis=1).values.reshape(-1, 1)
+    )
+    dfi.export(
+        pd.concat([relative_scores, relative_scores.agg(['mean', 'std'])]).style.apply(highlight_max, axis=1).format("{:.2f}"),
+        experiment_folder / "agg_rel_r2_scores.png",
+        table_conversion="matplotlib",
+        max_cols=50,
+        max_rows=150
+    )
+    
+    subset = relative_scores[~relative_scores.index.get_level_values('name').str.startswith('fri_')]
+    dfi.export(
+        pd.concat([subset, subset.agg(['mean', 'std'])]).style.apply(highlight_max, axis=1).format("{:.2f}"),
+        experiment_folder / "agg_rel_r2_scores_no_fri.png",
+        table_conversion="matplotlib",
+        max_cols=50,
+        max_rows=150
+    )
 
 
 if __name__ == "__main__":
