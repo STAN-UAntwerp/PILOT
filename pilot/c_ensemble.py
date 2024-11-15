@@ -83,7 +83,27 @@ class RandomForestCPilot(BaseEstimator):
         df_settings: dict[str, int] | None = None,
         rel_tolerance: float = 0.01,
         precision_scale: float = 1e-10,
+        alpha: float = 1,
     ):
+        """
+        Random Forest with PILOT trees as estimators.
+        Args:
+        - n_estimators (int): number of PILOT trees
+        - max_depth (int): max depth to grow each PILOT tree (excl linear nodes)
+        - max_model_depth (int): max depth to grow each PILOT tree (incl linear nodes)
+        - min_sample_fit (int): min samples needed to fit any node
+        - min_sample_alpha (int): min samples needed to fit a piecewise node
+        - min_sample_leaf (int): min samples needed in each leaf node
+        - random_state (int): seed used for bootstrapping and feature sampling
+        - n_features_tree (float): relative share of features to consider on tree level
+        - n_features_node (float): relative share of features to consider on node level
+        - df_settings (Optional[dict]): optionally override the default settings. 
+            If not None, alpha is ignored
+        - rel_tolerance (float): relative improvement in RSS needed to continue growing
+        - precision_scale (float): precision scale
+        - alpha (float): number between 0 and 1, sets the df to 1 + alpha * [0, 1, 4, 4, 6, 4]. 
+            Ignored if df_settings is not None
+        """
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.max_model_depth = max_model_depth
@@ -96,10 +116,11 @@ class RandomForestCPilot(BaseEstimator):
         self.df_settings = (
             list(df_settings.values())
             if df_settings is not None
-            else list(DEFAULT_DF_SETTINGS.values())
+            else (1 + alpha * (np.array(list(DEFAULT_DF_SETTINGS.values())) - 1)).tolist()
         )
         self.rel_tolerance = rel_tolerance
         self.precision_scale = precision_scale
+        self.alpha = alpha
 
     def fit(self, X, y, categorical_idx=None, n_workers: int = 1):
         """Fit a random forest ensemble of PILOT trees.
@@ -134,6 +155,7 @@ class RandomForestCPilot(BaseEstimator):
                 else int(X.shape[1] * self.n_features_node)
             ),
         )
+        np.random.seed(self.random_state)
         self.estimators = [
             CPILOTWrapper(
                 feature_idx=np.random.choice(

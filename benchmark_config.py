@@ -60,5 +60,6 @@ UCI_DATASET_IDS = [
     # 942, # classification target
 ]
 
+IGNORE_PMLB = ['banana', 'titanic']
 IGNORE_COLUMNS = {183: ["state", "county", "community", "communityname", "fold"]}
 LOGTRANSFORM_TARGET = [162, 332]
