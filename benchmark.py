@@ -117,7 +117,7 @@ def run_benchmark(experiment_name):
             results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
 
             # RF
-            for md, mf, nt in itertools.product([None], [1], [100]):
+            for md, mf, nt in itertools.product([6, 20, None], [0.7, 1], [100]):
                 model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_random_forest(
@@ -165,13 +165,13 @@ def run_benchmark(experiment_name):
                     [
                         # ("default df", 1, DEFAULT_DF_SETTINGS),
                         # ("df alpha = 0.01", 0.01, df_setting_alpha01),
-                        # ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
-                        # ("df no blin", 1, df_setting_no_blin),
+                        ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
+                        ("df no blin", 1, df_setting_no_blin),
                         # ("df alpha = 0.5", 0.5, df_setting_alpha5),
                         ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
                     ],
-                    [20],
-                    [1],
+                    [6, 20],
+                    [0.7, 1],
                     [100]
                 )
             ):
@@ -204,7 +204,7 @@ def run_benchmark(experiment_name):
                 )
 
             # XGB
-            for md, mf, nt in itertools.product([20], [1], [100]):
+            for md, mf, nt in itertools.product([6, 20], [0.7, 1], [100]):
                 model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_xgboost(
