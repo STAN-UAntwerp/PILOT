@@ -2,9 +2,9 @@
 #ifndef TREE_H
 #define TREE_H
 
+#define ARMA_NO_DEBUG
 #include <armadillo> 
 #include <memory>
-
 
 
 struct bestSplitOut {
@@ -61,6 +61,7 @@ public:
         const arma::uword& maxDepth,
         const arma::uword& maxModelDepth,
         const arma::uword& maxFeatures,
+        const arma::uword& approx,
         const double &rel_tolerance,
         const double& precScale);
   // for forests, should still include:
@@ -81,12 +82,10 @@ protected:
   void growTree(node* nd,
                 const arma::vec & y,
                 const arma::mat & X,
-                const arma::umat & Xorder,
                 const arma::umat& Xrank,
                 const arma::uvec & catIds);
   bestSplitOut findBestSplit(arma::uvec & obsIds, // observations currently in this node
                              const arma::mat & X, // matrix of predictors
-                             const arma::umat & Xorder,// the minimal number of samples required to fit a model that splits the node.
                              const arma::umat& Xrank,
                              const arma::uvec & catIds);
   void printNode(node* nd, arma::mat& tr) const;
@@ -102,6 +101,7 @@ protected:
   arma::uword maxDepth; // max depth excluding lin nodes
   arma::uword maxModelDepth; // max depth counting lin nodes as well
   arma::uword maxFeatures;
+  arma::uword approx;
   double rel_tolerance;
   double precScale;
   double lowerBound;

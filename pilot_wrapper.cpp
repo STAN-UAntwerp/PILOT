@@ -35,6 +35,7 @@ public:
             unsigned int maxDepth,
             unsigned int maxModelDepth,
             unsigned int maxFeatures,
+            unsigned int approx,
             double rel_tolerance,
             double precScale)
         : pilot(numpy_to_vec(dfs),
@@ -44,6 +45,7 @@ public:
                 maxDepth,
                 maxModelDepth,
                 maxFeatures,
+                approx,
                 rel_tolerance,
                 precScale) {}
 
@@ -78,6 +80,7 @@ PYBIND11_MODULE(cpilot, m) {
                       unsigned int, //maxDepth
                       unsigned int, //maxModelDepth
                       unsigned int, //maxFeatures
+                      unsigned int, //approx
                       double, //rel_tolerance
                       double>()) //precScale
         .def("train", &PyPILOT::train)

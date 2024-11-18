@@ -17,7 +17,7 @@ class CPILOTWrapper(CPILOT):
         max_depth=20,
         max_model_depth=100,
         max_features=-1,  # -1 means that it must be set
-        approx=0,  # 0 means no approximation, otherwise interpreted as max pivots per feature
+        max_pivot=None,  # None means no approximation, otherwise interpreted as max pivots per feature
         rel_tolerance=0.01,
         precision_scale=1e-10,
     ):
@@ -31,7 +31,7 @@ class CPILOTWrapper(CPILOT):
             max_depth,
             max_model_depth,
             max_features,
-            approx,
+            0 if max_pivot is None else max_pivot,
             rel_tolerance,
             precision_scale,
         )
@@ -84,6 +84,7 @@ class RandomForestCPilot(BaseEstimator):
         rel_tolerance: float = 0.01,
         precision_scale: float = 1e-10,
         alpha: float = 1,
+        max_pivot: int | None = None,
     ):
         """
         Random Forest with PILOT trees as estimators.
@@ -97,11 +98,11 @@ class RandomForestCPilot(BaseEstimator):
         - random_state (int): seed used for bootstrapping and feature sampling
         - n_features_tree (float): relative share of features to consider on tree level
         - n_features_node (float): relative share of features to consider on node level
-        - df_settings (Optional[dict]): optionally override the default settings. 
+        - df_settings (Optional[dict]): optionally override the default settings.
             If not None, alpha is ignored
         - rel_tolerance (float): relative improvement in RSS needed to continue growing
         - precision_scale (float): precision scale
-        - alpha (float): number between 0 and 1, sets the df to 1 + alpha * [0, 1, 4, 4, 6, 4]. 
+        - alpha (float): number between 0 and 1, sets the df to 1 + alpha * [0, 1, 4, 4, 6, 4].
             Ignored if df_settings is not None
         """
         self.n_estimators = n_estimators
@@ -121,6 +122,7 @@ class RandomForestCPilot(BaseEstimator):
         self.rel_tolerance = rel_tolerance
         self.precision_scale = precision_scale
         self.alpha = alpha
+        self.max_pivot = max_pivot
 
     def fit(self, X, y, categorical_idx=None, n_workers: int = 1):
         """Fit a random forest ensemble of PILOT trees.
@@ -168,6 +170,7 @@ class RandomForestCPilot(BaseEstimator):
                 max_depth=self.max_depth,
                 max_model_depth=self.max_model_depth,
                 max_features=n_features_node,
+                max_pivot=self.max_pivot,
                 rel_tolerance=self.rel_tolerance,
                 precision_scale=self.precision_scale,
             )

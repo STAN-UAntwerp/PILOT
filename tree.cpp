@@ -10,6 +10,7 @@ PILOT::PILOT(const arma::vec &dfs,
              const arma::uword &maxDepth,
              const arma::uword &maxModelDepth,
              const arma::uword &maxFeatures,
+             const arma::uword &approx,
              const double &rel_tolerance,
              const double &precScale) : dfs(dfs),
                                         min_sample_leaf(min_sample_leaf),
@@ -18,6 +19,7 @@ PILOT::PILOT(const arma::vec &dfs,
                                         maxDepth(maxDepth),
                                         maxModelDepth(maxModelDepth),
                                         maxFeatures(maxFeatures),
+                                        approx(approx),
                                         rel_tolerance(rel_tolerance),
                                         precScale(precScale)
 {
@@ -26,6 +28,11 @@ PILOT::PILOT(const arma::vec &dfs,
   if (dfs(0) < 0)
   {
     throw std::range_error("The con node should have non-negative degrees of freedom.");
+  }
+
+ if ((approx > 0) && (dfs(3) >= 0))
+  {
+    throw std::range_error("Approximate cannot be used (yet) in conjunction with the blin model.");
   }
 
   root = nullptr;
@@ -43,18 +50,13 @@ void PILOT::train(const arma::mat &X,
     throw std::range_error("maxFeatures should not be larger than the number of features");
   }
 
-  // calculate Xorder and Xrank
-  arma::umat Xorder(X.n_rows, X.n_cols, arma::fill::zeros);
+  // calculate Xrank
   arma::umat Xrank(X.n_rows, X.n_cols, arma::fill::zeros);
   for (arma::uword i = 0; i < X.n_cols; i++)
   { // O(d n\log(n))
     arma::uvec xorder = arma::sort_index(X.col(i));
-    arma::uvec xrank(Xorder.n_rows, arma::fill::zeros);
-    for (arma::uword j = 0; j < X.n_rows; j++)
-    {
-      xrank(xorder(j)) = j;
-    }
-    Xorder.col(i) = xorder;
+    arma::uvec xrank(X.n_rows, arma::fill::zeros);
+    xrank(xorder) = arma::regspace<arma::uvec>(0, X.n_rows - 1);
     Xrank.col(i) = xrank;
   }
   // build root node
@@ -73,8 +75,7 @@ void PILOT::train(const arma::mat &X,
   nbNodesPerModelDepth = arma::zeros<arma::uvec>(maxModelDepth + 1); // initialize nodes per model depth
   nbNodesPerModelDepth(0) = 1;                                       // 1 root node at depth 0
 
-
-  PILOT::growTree(root.get(), y, X, Xorder, Xrank, catIds);
+  PILOT::growTree(root.get(), y, X, Xrank, catIds);
 }
 
 arma::vec PILOT::getResiduals() const
@@ -161,7 +162,6 @@ bool PILOT::stopGrowing(node *nd) const
 void PILOT::growTree(node *nd,
                      const arma::vec &y,
                      const arma::mat &X,
-                     const arma::umat &Xorder,
                      const arma::umat &Xrank,
                      const arma::uvec &catIds)
 {
@@ -186,7 +186,6 @@ void PILOT::growTree(node *nd,
   {
     bestSplitOut newSplit = findBestSplit(nd->obsIds,
                                           X,
-                                          Xorder,
                                           Xrank,
                                           catIds);
 
@@ -259,7 +258,6 @@ void PILOT::growTree(node *nd,
         growTree(nd->left.get(),
                  y,
                  X,
-                 Xorder,
                  Xrank,
                  catIds);
       }
@@ -298,13 +296,11 @@ void PILOT::growTree(node *nd,
       growTree(nd->left.get(),
                y,
                X,
-               Xorder,
                Xrank,
                catIds);
       growTree(nd->right.get(),
                y,
                X,
-               Xorder,
                Xrank,
                catIds);
     }
@@ -349,13 +345,11 @@ void PILOT::growTree(node *nd,
       growTree(nd->left.get(),
                y,
                X,
-               Xorder,
                Xrank,
                catIds);
       growTree(nd->right.get(),
                y,
                X,
-               Xorder,
                Xrank,
                catIds);
     }
@@ -365,7 +359,6 @@ void PILOT::growTree(node *nd,
 bestSplitOut PILOT::findBestSplit(
     arma::uvec &obsIds, // observations currently in this node
     const arma::mat &X, // matrix of predictors
-    const arma::umat &Xorder,
     const arma::umat &Xrank,
     const arma::uvec &catIds)
 {
@@ -440,13 +433,18 @@ bestSplitOut PILOT::findBestSplit(
   arma::mat::fixed<3, 3> XtX;
   arma::vec::fixed<3> XtY;
   arma::uvec splitCandidates(obsIds.n_elem);
-  arma::uword splitID, ndups, maxi, nSplitCandidates, k, startID, stopID, nbUnique;
+  arma::uword splitID, nsteps, mini, nSplitCandidates, k, startID, stopID, nbUnique, ii, stepSize;
 
   bool sortLocally = false;
+  bool approxed;
 
-  if (n < 1000)
+  if (n < 100)
   {
     sortLocally = true;
+  }
+  else
+  {
+    xorder.set_size(X.n_rows);
   }
 
   arma::uvec featuresToConsider = arma::randperm(d, maxFeatures);
@@ -466,17 +464,21 @@ bestSplitOut PILOT::findBestSplit(
     }
     else
     { // This O(n), but can be slow if obsIds.n_elem is small and X.n_rows is large, due to copying large vectors
-      xorder.resize(X.n_rows);
+
       xorder.fill(X.n_rows); // fill with an out of bound value
       xorder(Xrank.submat(obsIds, arma::uvec{j})) = arma::regspace<arma::uvec>(0, obsIds.n_elem - 1);
-      lastuint = std::remove(xorder.begin(), xorder.end(), X.n_rows); // "std::remove" out of bound value
-      if (xorder.end() - lastuint > 0)
-      { // check if duplicates found
-        xorder.shed_rows(xorder.n_elem - (xorder.end() - lastuint), xorder.n_elem - 1);
-      }
 
-      xs = X.submat(obsIds(xorder), arma::uvec{j});
-      ys = res(obsIds(xorder));
+      arma::uword counter = 0;
+      for (arma::uword i = 0; i < xorder.n_elem; i++)
+      {
+        if (xorder(i) != X.n_rows)
+        {
+          xs(counter) = X(obsIds(xorder(i)), j);
+          ys(counter) = res(obsIds(xorder(i)));
+          xorder(counter) = xorder(i); // this is needed for categorical variables, the first obsIds.n_elem elements now contain the order of x = X(obsIds, j)
+          counter++;
+        }
+      }
     }
 
     // non-categorical variables
@@ -591,24 +593,42 @@ bestSplitOut PILOT::findBestSplit(
       // now start with evaluating split models
       // first determine the indices of the possible splits:
 
-      nSplitCandidates = 1;
-      for (arma::uword i = 1; i < n; i++)
-      {
-        if (xs(i) - xs(i - 1) > precScale)
-        {
-          splitCandidates(nSplitCandidates) = i;
-          nSplitCandidates++;
+      stepSize = 1;
+      approxed = false;
+
+      if ((approx > 0) && (n > approx)) {
+        stepSize = std::round(n / (double)approx);
+        approxed = true;
+      }
+
+      nSplitCandidates = 0;
+      for (arma::uword i = 0; i < n; i += stepSize)
+      { // xs(i) is the new splitcandidate
+        ii = 0;
+        while((i+(ii) < n) && (xs(i+ii) - xs(i) < precScale) ){ // counter the number of occurences of x(i)
+          ii++;
         }
+        splitCandidates(nSplitCandidates) = i + (ii - 1);
+        nSplitCandidates++;
+
+        if (ii > 1) { // shift the iterator in case of duplicates
+          i = i + (ii - 1);
+        }        
       }
 
       for (arma::uword i = 0; i < nSplitCandidates - 1; i++)
-      { // iterate over all possible split points
+      { // iterate over all candidate split points
 
         splitID = splitCandidates(i);
         splitVal = xs(splitID);
 
-        // count number of duplicate splitVals
-        ndups = splitCandidates(i + 1) - splitID;
+        // count number of skipped steps from the previous splitVal 
+        // This can also be > 1 when binning is used (i.e. approx > 0)
+        if (i == 0) {
+          nsteps = splitID + 1;
+        } else {
+          nsteps = splitID - splitCandidates(i-1);
+        }
 
         if (dfs(3) >= 0)
         {
@@ -631,13 +651,11 @@ bestSplitOut PILOT::findBestSplit(
         }
 
         // update sizes
-        nL += ndups;
-        nR -= ndups;
+        nL += nsteps;
+        nR -= nsteps;
 
-        // here we have the option to write if (ndups == 1){} else {}
-        // to avoid the arma::sum(ysel) in most cases (i.e. when ndups = 1).
         // update moments
-        if (ndups == 1)
+        if (nsteps == 1)
         {
           xdiff = splitVal;
           x2diff = xdiff * splitVal;
@@ -647,14 +665,21 @@ bestSplitOut PILOT::findBestSplit(
         }
         else
         {
-          maxi = splitID + ndups - 1; // idx of last duplicate value
-          xdiff = ndups * splitVal;
+          mini = splitID - nsteps + 1;
+          ydiff = arma::sum(ys.subvec(mini, splitID));
+          y2diff = arma::sum(ys.subvec(mini, splitID) % ys.subvec(mini, splitID));
+          if (approxed) {
+          xdiff = arma::sum(xs.subvec(mini, splitID));
+          x2diff = arma::sum(xs.subvec(mini, splitID) % xs.subvec(mini, splitID));
+          xydiff = arma::sum(xs.subvec(mini, splitID) % ys.subvec(mini, splitID)); 
+          } else { // in this case, nsteps only counts the number of duplicate values, and we can update xdiff and x2diff efficiently.
+          xdiff = nsteps * splitVal;
           x2diff = xdiff * splitVal;
-          ydiff = arma::sum(ys.subvec(splitID, maxi));
-          y2diff = arma::sum(ys.subvec(splitID, maxi) % ys.subvec(splitID, maxi));
           xydiff = splitVal * ydiff;
+          }
         }
 
+      
         sumxL += xdiff;
         sumx2L += x2diff;
         sumyL += ydiff;
@@ -817,7 +842,8 @@ bestSplitOut PILOT::findBestSplit(
 
       if (xunique.n_elem >= 2)
       {
-        // at least two unique predictor variables needed for pcon
+        // xorder = xorder.head(xs.n_elem); // is this necessary?
+        //  at least two unique predictor variables needed for pcon
         k = arma::conv_to<arma::uword>::from(xunique.tail(1)) + 1;
         sums.zeros(k);
         counts.zeros(k);
