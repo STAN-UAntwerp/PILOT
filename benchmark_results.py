@@ -44,6 +44,7 @@ def store_results(experiment_name):
         "XGB",
     ]
     experiment_folder = output_folder / experiment_name
+    print(f"Loading results from {experiment_folder}")
     results = pd.read_csv(experiment_folder / "results.csv")
     results = results.assign(mainmodel=results["model"].str.split("-").str[0])
     scores = results.groupby(["id", "name", "model"])["r2"].mean().unstack()
@@ -52,14 +53,15 @@ def store_results(experiment_name):
     ]
     scores = scores.loc[:, column_order]
 
-    # scores.to_html(experiment_folder / "r2_scores.html")
-    dfi.export(
-        scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
-        experiment_folder / "r2_scores.png",
-        table_conversion="matplotlib",
-        max_cols=50,
-        max_rows=150,
-    )
+    # print(f"Storing scores to {experiment_folder / 'r2_scores.png'}")
+    # # scores.to_html(experiment_folder / "r2_scores.html")
+    # dfi.export(
+    #     scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
+    #     experiment_folder / "r2_scores.png",
+    #     table_conversion="matplotlib",
+    #     max_cols=50,
+    #     max_rows=150,
+    # )
 
     times = (
         results.groupby(["id", "name", "n_samples", "n_features", "model"])["fit_duration"]
@@ -67,16 +69,17 @@ def store_results(experiment_name):
         .unstack()
         .loc[:, column_order]
     )
-    # times.to_html(experiment_folder / "fit_duration.html")
-    dfi.export(
-        times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
-            "{:.2f}"
-        ),
-        experiment_folder / "fit_duration.png",
-        table_conversion="matplotlib",
-        max_cols=50,
-        max_rows=150
-    )
+    # print(f"Storing times to {experiment_folder / 'fit_duration.png'}")
+    # # times.to_html(experiment_folder / "fit_duration.html")
+    # dfi.export(
+    #     times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
+    #         "{:.2f}"
+    #     ),
+    #     experiment_folder / "fit_duration.png",
+    #     table_conversion="matplotlib",
+    #     max_cols=50,
+    #     max_rows=150
+    # )
 
     aggregated_scores = pd.concat(
         [
@@ -86,6 +89,7 @@ def store_results(experiment_name):
         ],
         axis=1,
     )
+    print(f"Storing aggregated scores to {experiment_folder / 'agg_r2_scores.png'}")
     dfi.export(
         aggregated_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
         experiment_folder / "agg_r2_scores.png",
@@ -115,13 +119,14 @@ def store_results(experiment_name):
         .set_index(["excl_blin", "alpha", "max_depth", "max_node_features", "n_estimators"])
         .T
     )
-    dfi.export(
-        cpf_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
-        experiment_folder / "cpf_r2_scores.png",
-        table_conversion="matplotlib",
-        max_cols=50,
-        max_rows=150
-    )
+    # print(f"Storing CPF scores to {experiment_folder / 'cpf_r2_scores.png'}")
+    # dfi.export(
+    #     cpf_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
+    #     experiment_folder / "cpf_r2_scores.png",
+    #     table_conversion="matplotlib",
+    #     max_cols=50,
+    #     max_rows=150
+    # )
     cpf_ranks = pd.DataFrame(
         {
             "average_R2_ratio": (
@@ -135,6 +140,7 @@ def store_results(experiment_name):
         index=cpf_scores.columns,
     )
 
+    print(f"Storing CPF R2 ratio's to {experiment_folder / 'cpf_avg_rank.png'}")
     dfi.export(
         cpf_ranks.style,
         experiment_folder / "cpf_avg_rank.png",
@@ -145,9 +151,11 @@ def store_results(experiment_name):
 
     cpf_ranks = cpf_ranks.reset_index()
     for c in ["excl_blin", "alpha", "max_depth", "max_node_features", "n_estimators"]:
+        fname = experiment_folder / f"cpf_avg_rank_{c}.png"
+        print(f"Storing CPF R2 ratio for HP {c} to {fname}")
         dfi.export(
             cpf_ranks.groupby(c)["average_R2_ratio"].mean().to_frame().style,
-            experiment_folder / f"cpf_avg_rank_{c}.png",
+            fname,
             table_conversion="matplotlib",
         )
 
@@ -172,15 +180,16 @@ def store_results(experiment_name):
         .set_index(["excl_blin", "alpha", "max_depth", "max_node_features", "n_estimators"])
         .T
     )
-    dfi.export(
-        cpf_times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
-            "{:.2f}"
-        ),
-        experiment_folder / "cpf_times.png",
-        table_conversion="matplotlib",
-        max_cols=50,
-        max_rows=150,
-    )
+    # print(f"Storing CPF times to {experiment_folder / 'cpf_times.png'}")
+    # dfi.export(
+    #     cpf_times.style.apply(lambda s: highlight_max(s, c1="red", c2="lightcoral"), axis=1).format(
+    #         "{:.2f}"
+    #     ),
+    #     experiment_folder / "cpf_times.png",
+    #     table_conversion="matplotlib",
+    #     max_cols=50,
+    #     max_rows=150,
+    # )
     
     COLUMN_ORDER = [
         "CART",
@@ -205,6 +214,7 @@ def store_results(experiment_name):
         ],
         axis=1,
     )
+    print(f"Storing aggregated R2 scores to {experiment_folder / 'agg_r2_scores_with_default_CPF.png'}")
     dfi.export(
         aggregated_scores.style.apply(highlight_max, axis=1).format("{:.2f}"),
         experiment_folder / "agg_r2_scores_with_default_CPF.png",
@@ -217,6 +227,7 @@ def store_results(experiment_name):
         aggregated_scores.clip(0, 1) 
         / aggregated_scores.clip(0, 1).max(axis=1).values.reshape(-1, 1)
     )
+    print(f"Storing relative R2 scores to {experiment_folder / 'agg_rel_r2_scores.png'}")
     dfi.export(
         pd.concat([relative_scores, relative_scores.agg(['mean', 'std'])]).style.apply(highlight_max, axis=1).format("{:.2f}"),
         experiment_folder / "agg_rel_r2_scores.png",
@@ -226,6 +237,7 @@ def store_results(experiment_name):
     )
     
     subset = relative_scores[~relative_scores.index.get_level_values('name').str.startswith('fri_')]
+    print(f"Storing relative R2 scores to {experiment_folder / 'agg_rel_r2_scores_no_fri.png'}")
     dfi.export(
         pd.concat([subset, subset.agg(['mean', 'std'])]).style.apply(highlight_max, axis=1).format("{:.2f}"),
         experiment_folder / "agg_rel_r2_scores_no_fri.png",
