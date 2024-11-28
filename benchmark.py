@@ -74,7 +74,7 @@ def run_benchmark(experiment_name):
         print_with_timestamp(repo_id)
         kind, repo_id = repo_id.split('_')
         dataset = load_data(repo_id=repo_id, kind=kind)
-        if dataset.n_samples > 1e5:
+        if dataset.n_samples > 2e5:
             print_with_timestamp(f"Skipping large dataset {repo_id}")
             continue
         for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
@@ -117,7 +117,7 @@ def run_benchmark(experiment_name):
             results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
 
             # RF
-            for md, mf, nt in itertools.product([6, 20, None], [0.7, 1], [100]):
+            for md, mf, nt in itertools.product([6, 20, None], [0.7, 1.0], [100]):
                 model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_random_forest(
@@ -171,7 +171,7 @@ def run_benchmark(experiment_name):
                         ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
                     ],
                     [6, 20],
-                    [0.7, 1],
+                    [0.7, 1.0],
                     [100]
                 )
             ):
@@ -187,6 +187,7 @@ def run_benchmark(experiment_name):
                     max_depth=max_depth,
                     n_features_node=max_features,
                     df_settings=df_setting,
+                    max_pivot=10000
                 )
                 results.append(
                     dict(
@@ -204,7 +205,7 @@ def run_benchmark(experiment_name):
                 )
 
             # XGB
-            for md, mf, nt in itertools.product([6, 20], [0.7, 1], [100]):
+            for md, mf, nt in itertools.product([6, 20], [0.7, 1.0], [100]):
                 model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_xgboost(

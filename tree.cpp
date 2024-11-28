@@ -438,7 +438,7 @@ bestSplitOut PILOT::findBestSplit(
   bool sortLocally = false;
   bool approxed;
 
-  if (n < 100)
+  if (n < 500000)
   {
     sortLocally = true;
   }

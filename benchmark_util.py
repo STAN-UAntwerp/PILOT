@@ -320,6 +320,7 @@ def fit_cpilot(
     max_node_features=1,
     rel_tolerance=0.01,
     precision_scale=1e-10,
+    max_pivot: float | None = None
 ) -> FitResult:
     t1 = time.time()
     max_features = (
@@ -335,6 +336,7 @@ def fit_cpilot(
         max_depth,
         max_model_depth,
         max_features,
+        0 if max_pivot is None else max_pivot,
         rel_tolerance,
         precision_scale,
     )
@@ -399,6 +401,7 @@ def fit_cpilot_forest(
     df_settings: dict[str, int] | None = None,
     rel_tolerance: float = 1e-2,
     precision_scale: float = 1e-10,
+    max_pivot: int | float = None
 ) -> FitResult:
     t1 = time.time()
     model = RandomForestCPilot(
@@ -414,6 +417,7 @@ def fit_cpilot_forest(
         rel_tolerance=rel_tolerance,
         precision_scale=precision_scale,
         random_state=random_state,
+        max_pivot=max_pivot
     )
     model.fit(
         train_dataset.X_label_encoded.values,
