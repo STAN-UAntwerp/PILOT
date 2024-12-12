@@ -11,6 +11,7 @@ from dataclasses import dataclass, asdict, field
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge, Lasso
 from sklearn.metrics import r2_score, mean_squared_error, median_absolute_error
 from ucimlrepo import fetch_ucirepo
 from pmlb import fetch_data
@@ -358,6 +359,30 @@ def fit_cpilot(
 def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
     t1 = time.time()
     model = RandomForestRegressor(**init_kwargs)
+    model.fit(train_dataset.X_oh_encoded, train_dataset.y)
+    t2 = time.time()
+    y_pred = model.predict(test_dataset.X_oh_encoded)
+    t3 = time.time()
+    r2 = float(r2_score(test_dataset.y, y_pred))
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+
+def fit_ridge(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+    t1 = time.time()
+    model = Ridge(**init_kwargs)
+    model.fit(train_dataset.X_oh_encoded, train_dataset.y)
+    t2 = time.time()
+    y_pred = model.predict(test_dataset.X_oh_encoded)
+    t3 = time.time()
+    r2 = float(r2_score(test_dataset.y, y_pred))
+    mse = float(mean_squared_error(test_dataset.y, y_pred))
+    mae = float(median_absolute_error(test_dataset.y, y_pred))
+    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+
+def fit_lasso(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+    t1 = time.time()
+    model = Lasso(**init_kwargs)
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
     t2 = time.time()
     y_pred = model.predict(test_dataset.X_oh_encoded)
