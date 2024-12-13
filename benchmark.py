@@ -10,6 +10,7 @@ import pandas as pd
 
 from datetime import datetime
 from sklearn.model_selection import KFold
+from sklearn.linear_model._coordinate_descent import _alpha_grid 
 
 from pilot import DEFAULT_DF_SETTINGS
 from benchmark_config import LOGTRANSFORM_TARGET, UCI_DATASET_IDS, IGNORE_COLUMNS
@@ -227,7 +228,15 @@ def run_benchmark(experiment_name):
             #         )
             #     )
             # linear models
-            for alpha in [0.01, 0.1, 1]:
+            for alpha in  _alpha_grid(
+                    train_dataset.X_oh_encoded,
+                    train_dataset.y,
+                    l1_ratio=1,
+                    fit_intercept=True,
+                    eps=1e-3,
+                    n_alphas=100,
+                    copy_X=False,
+                ):
                 model_name = f"Ridge - alpha = {alpha}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_ridge(
