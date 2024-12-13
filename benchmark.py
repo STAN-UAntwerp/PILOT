@@ -78,6 +78,15 @@ def run_benchmark(experiment_name):
         if dataset.n_samples > 2e5:
             print_with_timestamp(f"Skipping large dataset {repo_id}")
             continue
+        alphagrid = _alpha_grid(
+            dataset.X_oh_encoded,
+            dataset.y,
+            l1_ratio=1,
+            fit_intercept=True,
+            eps=1e-3,
+            n_alphas=100,
+            copy_X=False,
+        )
         for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
             print_with_timestamp(f"\tFold {i} / 5")
             print('\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
@@ -228,15 +237,7 @@ def run_benchmark(experiment_name):
             #         )
             #     )
             # linear models
-            for alpha in  _alpha_grid(
-                    train_dataset.X_oh_encoded,
-                    train_dataset.y,
-                    l1_ratio=1,
-                    fit_intercept=True,
-                    eps=1e-3,
-                    n_alphas=100,
-                    copy_X=False,
-                ):
+            for alpha in alphagrid:
                 model_name = f"Ridge - alpha = {alpha}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_ridge(
