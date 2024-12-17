@@ -1,0 +1,22 @@
+Package: pilot
+Type: Package
+Title: Build PILOT for regression
+Version: 1.0.0.9900
+Date: 2024-12-10
+Author: c(person(given="Jakob",family="Raymaekers", role = c("aut", "cre"), 
+                   email = "jakob.raymaekers@uantwerpen.be"),
+          person(given="Peter",family="Rousseeuw", role = c("aut")),,
+          person(given="Thomas",family="Servotte", role = c("aut"))
+          person(given="Tim",family="Verdonck", role = c("aut")),
+          person(given="Ruicong",family="Yao", role = c("aut")))
+Maintainer: Jakob Raymaekers <jakob.raymaekers@uantwerpen.be>
+Description: Contains the implementation of the PILOT algorithm described in Raymaekers, Rousseeuw, Verdonck and Yao (2024) <doi:10.1007/s10994-024-06590-3> (open access)
+License: GPL-3 + file LICENSE
+Imports: Rcpp (>= 1.0.12)
+Depends: methods
+LinkingTo: Rcpp, RcppArmadillo
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
+RoxygenNote: 7.3.1
+NeedsCompilation: yes
+Packaged: 2024-12-17 13:10:31 UTC; Jakob Raymaekers

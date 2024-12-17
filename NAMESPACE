@@ -1,0 +1,11 @@
+useDynLib(pilot, .registration=TRUE)
+
+import(Rcpp)
+import(methods)
+importFrom("utils", "capture.output")
+
+
+export(pilot)
+S3method(predict, PILOT)
+S3method(plot, PILOT)
+S3method(print, PILOT)
