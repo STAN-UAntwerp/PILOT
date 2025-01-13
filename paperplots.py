@@ -1,6 +1,7 @@
 import click
 import pathlib
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -51,10 +52,25 @@ def load_basetable():
 
 def get_relative_table(basetable):
     reltable = basetable.pivot(index="id", columns="model", values="r2")
+    lintype = pd.Series(
+        index=reltable.index,
+        data=np.where(
+            reltable[["Lasso", "Ridge"]].max(axis=1) > reltable["CART"],
+            "Linear",
+            "Non-linear",
+        ).flatten(),
+        name="Type",
+    )
     reltable = reltable.clip(0, 1) / reltable.clip(0, 1).max(axis=1).values.reshape(
         -1, 1
     )
-    return reltable.reset_index().melt(id_vars="id", var_name="model", value_name="r2")
+    return (
+        reltable.reset_index()
+        .melt(id_vars="id", var_name="model", value_name="r2")
+        .set_index("id")
+        .join(lintype)
+        .reset_index()
+    )
 
 
 def plot_overall_boxplot(reltable):
@@ -69,17 +85,41 @@ def plot_overall_boxplot(reltable):
     fig.savefig(outputfolder / "paperplots" / "boxplots_overall_relative.pdf", dpi=300)
 
 
+def plot_lin_vs_nonlin_boxplot(reltable):
+    fig, ax = plt.subplots(1, 1, figsize=(20, 12))
+    sns.boxplot(data=reltable, x="model", y="r2", hue="Type", ax=ax, order=MODELORDER)
+    ax.set_ylabel(r"Relative $R^2$", fontsize=30)
+    ax.set_xlabel("Model", fontsize=30)
+    ax.tick_params(axis="y", which="major", labelsize=22)
+    ax.tick_params(axis="x", which="major", labelsize=26)
+    _ = ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, fontsize=26)
+    fig.tight_layout()
+    fig.savefig(
+        outputfolder / "paperplots" / "boxplots_lin_vs_nonlin_relative_all.png", dpi=300
+    )
+    fig.savefig(
+        outputfolder / "paperplots" / "boxplots_lin_vs_nonlin_relative_all.pdf", dpi=300
+    )
+
+
 @click.command()
 @click.option(
     "--overall_boxplot",
     is_flag=True,
     help="Plot overall boxplot with relative R2 values",
 )
+@click.option(
+    "--typed_boxplot",
+    is_flag=True,
+    help="Plot linear vs non-linear boxplot with relative R2 values",
+)
 @click.option("--all", is_flag=True, help="Create all plots")
 @click.pass_context
-def main(ctx, overall_boxplot, all):
+def main(ctx, overall_boxplot, typed_boxplot, all):
     if overall_boxplot or all:
         plot_overall_boxplot(ctx.obj["reltable"])
+    if typed_boxplot or all:
+        plot_lin_vs_nonlin_boxplot(ctx.obj["reltable"])
 
 
 if __name__ == "__main__":
