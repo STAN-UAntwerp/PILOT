@@ -11,6 +11,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.model_selection import KFold
 from sklearn.linear_model._coordinate_descent import _alpha_grid 
+from sklearn.preprocessing import PowerTransformer
 
 from pilot import DEFAULT_DF_SETTINGS
 from benchmark_config import LOGTRANSFORM_TARGET, UCI_DATASET_IDS, IGNORE_COLUMNS
@@ -92,11 +93,21 @@ def run_benchmark(experiment_name):
             print('\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
             train_dataset = dataset.subset(train)
             test_dataset = dataset.subset(test)
+            
+            transformers = {
+                col: PowerTransformer().fit(train_dataset.X.loc[:, [col]]) 
+                for col in train_dataset.X.columns 
+                if col not in train_dataset.cat_names
+            }
+            for col, transformer in transformers.items():
+                train_dataset.apply_transformer(col, transformer)
+                test_dataset.apply_transformer(col, transformer)
+                
 
             # CART
-            # print_with_timestamp("\t\tCART")
-            # r = fit_cart(train_dataset=train_dataset, test_dataset=test_dataset)
-            # results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
+            print_with_timestamp("\t\tCART")
+            r = fit_cart(train_dataset=train_dataset, test_dataset=test_dataset)
+            results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
 
             # # PILOT
             # r = fit_pilot(
@@ -118,36 +129,36 @@ def run_benchmark(experiment_name):
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
 
-            # print_with_timestamp("\t\tCPILOT")
-            # r = fit_cpilot(
-            #     train_dataset=train_dataset,
-            #     test_dataset=test_dataset,
-            #     max_depth=20,
-            # )
-            # results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
+            print_with_timestamp("\t\tCPILOT")
+            r = fit_cpilot(
+                train_dataset=train_dataset,
+                test_dataset=test_dataset,
+                max_depth=20,
+            )
+            results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
 
-            # # RF
-            # for md, mf, nt in itertools.product([6, 20, None], [0.7, 1.0], [100]):
-            #     model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
-            #     print_with_timestamp(f"\t\t{model_name}")
-            #     r = fit_random_forest(
-            #         train_dataset=train_dataset,
-            #         test_dataset=test_dataset,
-            #         n_estimators=nt,
-            #         max_depth=md,
-            #         max_features=mf,
-            #     )
-            #     results.append(
-            #         dict(
-            #             **dataset.summary(), 
-            #             fold=i, 
-            #             model=model_name, 
-            #             **r.asdict(), 
-            #             max_depth=md, 
-            #             max_features=mf,
-            #             n_estimators=nt
-            #         )
-            #     )
+            # RF
+            for md, mf, nt in itertools.product([6, 20, None], [0.7, 1.0], [100]):
+                model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
+                print_with_timestamp(f"\t\t{model_name}")
+                r = fit_random_forest(
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    n_estimators=nt,
+                    max_depth=md,
+                    max_features=mf,
+                )
+                results.append(
+                    dict(
+                        **dataset.summary(), 
+                        fold=i, 
+                        model=model_name, 
+                        **r.asdict(), 
+                        max_depth=md, 
+                        max_features=mf,
+                        n_estimators=nt
+                    )
+                )
 
             # # PF
             # r = fit_pilot_forest(
@@ -170,72 +181,72 @@ def run_benchmark(experiment_name):
             #     regression_nodes=["con", "lin", "pcon", "plin"],
             # )
             # results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
-            # for j, ((df_name, alpha, df_setting), max_depth, max_features, ntrees) in enumerate(
-            #     itertools.product(
-            #         [
-            #             # ("default df", 1, DEFAULT_DF_SETTINGS),
-            #             # ("df alpha = 0.01", 0.01, df_setting_alpha01),
-            #             ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
-            #             ("df no blin", 1, df_setting_no_blin),
-            #             # ("df alpha = 0.5", 0.5, df_setting_alpha5),
-            #             ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
-            #         ],
-            #         [6, 20],
-            #         [0.7, 1.0],
-            #         [100]
-            #     )
-            # ):
-            #     model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features} - n_estimators = {ntrees}"
-            #     print_with_timestamp(f"\t\t{model_name}")
-            #     r = fit_cpilot_forest(
-            #         train_dataset=train_dataset,
-            #         test_dataset=test_dataset,
-            #         n_estimators=ntrees,
-            #         min_sample_leaf=1,
-            #         min_sample_alpha=2,
-            #         min_sample_fit=2,
-            #         max_depth=max_depth,
-            #         n_features_node=max_features,
-            #         df_settings=df_setting,
-            #         max_pivot=10000
-            #     )
-            #     results.append(
-            #         dict(
-            #             **dataset.summary(),
-            #             fold=i,
-            #             model=model_name,
-            #             **r.asdict(),
-            #             df_setting=df_setting,
-            #             excl_blin="no_blin" in df_name,
-            #             alpha=alpha,
-            #             max_depth=max_depth,
-            #             max_features=max_features,
-            #             n_estimators=ntrees
-            #         )
-            #     )
+            for j, ((df_name, alpha, df_setting), max_depth, max_features, ntrees) in enumerate(
+                itertools.product(
+                    [
+                        # ("default df", 1, DEFAULT_DF_SETTINGS),
+                        # ("df alpha = 0.01", 0.01, df_setting_alpha01),
+                        ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
+                        ("df no blin", 1, df_setting_no_blin),
+                        # ("df alpha = 0.5", 0.5, df_setting_alpha5),
+                        ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
+                    ],
+                    [6, 20],
+                    [0.7, 1.0],
+                    [100]
+                )
+            ):
+                model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features} - n_estimators = {ntrees}"
+                print_with_timestamp(f"\t\t{model_name}")
+                r = fit_cpilot_forest(
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    n_estimators=ntrees,
+                    min_sample_leaf=1,
+                    min_sample_alpha=2,
+                    min_sample_fit=2,
+                    max_depth=max_depth,
+                    n_features_node=max_features,
+                    df_settings=df_setting,
+                    max_pivot=10000
+                )
+                results.append(
+                    dict(
+                        **dataset.summary(),
+                        fold=i,
+                        model=model_name,
+                        **r.asdict(),
+                        df_setting=df_setting,
+                        excl_blin="no_blin" in df_name,
+                        alpha=alpha,
+                        max_depth=max_depth,
+                        max_features=max_features,
+                        n_estimators=ntrees
+                    )
+                )
 
-            # # XGB
-            # for md, mf, nt in itertools.product([6, 20], [0.7, 1.0], [100]):
-            #     model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
-            #     print_with_timestamp(f"\t\t{model_name}")
-            #     r = fit_xgboost(
-            #         train_dataset=train_dataset, 
-            #         test_dataset=test_dataset, 
-            #         max_depth=md, 
-            #         max_node_features=mf,
-            #         n_estimators=nt
-            #     )
-            #     results.append(
-            #         dict(
-            #             **dataset.summary(), 
-            #             fold=i, 
-            #             model=model_name, 
-            #             **r.asdict(), 
-            #             max_depth=md, 
-            #             max_features=mf,
-            #             n_estimators=nt
-            #         )
-            #     )
+            # XGB
+            for md, mf, nt in itertools.product([6, 20], [0.7, 1.0], [100]):
+                model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
+                print_with_timestamp(f"\t\t{model_name}")
+                r = fit_xgboost(
+                    train_dataset=train_dataset, 
+                    test_dataset=test_dataset, 
+                    max_depth=md, 
+                    max_node_features=mf,
+                    n_estimators=nt
+                )
+                results.append(
+                    dict(
+                        **dataset.summary(), 
+                        fold=i, 
+                        model=model_name, 
+                        **r.asdict(), 
+                        max_depth=md, 
+                        max_features=mf,
+                        n_estimators=nt
+                    )
+                )
             # linear models
             for alpha in alphagrid:
                 model_name = f"Ridge - alpha = {alpha}"

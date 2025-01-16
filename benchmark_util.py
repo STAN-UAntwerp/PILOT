@@ -13,6 +13,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.metrics import r2_score, mean_squared_error, median_absolute_error
+from sklearn.preprocessing import PowerTransformer
 from ucimlrepo import fetch_ucirepo
 from pmlb import fetch_data
 
@@ -69,6 +70,11 @@ class Dataset:
         include_fields=["id", "name", "n_samples", "n_features", "rows_removed", "cols_removed"],
     ):
         return {field: getattr(self, field) for field in include_fields}
+    
+    def apply_transformer(self, feature_name: str, transformer: PowerTransformer):
+        self.X.loc[:, feature_name] = transformer.transform(self.X.loc[:, [feature_name]]).flatten() 
+        self.X_oh_encoded.loc[:, feature_name] = transformer.transform(self.X_oh_encoded.loc[:, [feature_name]]).flatten()
+        self.X.loc[:, feature_name] = transformer.transform(self.X.loc[:, [feature_name]]).flatten()
 
 
 @dataclass
@@ -139,7 +145,7 @@ def _load_uci_data(
             ),
         ],
         axis=1,
-    ).astype(np.float64)
+    ).astype(np.float64).loc[:, X.columns] # ensure same column order
 
     label_encoders = {col: LabelEncoder().fit(X[col]) for col in cat_names}
     X_label_encoded = X.copy()
@@ -226,7 +232,7 @@ def _load_pmlb_data(
             ),
         ],
         axis=1,
-    ).astype(np.float64)
+    ).astype(np.float64).loc[:, X.columns] # ensure same column order
 
     label_encoders = {col: LabelEncoder().fit(X[col]) for col in cat_names}
     X_label_encoded = X.copy()
