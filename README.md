@@ -57,6 +57,27 @@ To build the c++ wrapper, follow these steps:
     make
     ```
 
+    If you get errors like this: 
+    ``` 
+    Could NOT find Python3 (missing: Python3_NumPy_INCLUDE_DIRS NumPy)
+    ```
+    You might have to add these lines to `CMakeLists.txt`:
+    ```
+    set(Python3_INCLUDE_DIR <path_to_python_include>)
+    set(Python3_NumPy_INCLUDE_DIR <pat_to_numpy_include>)
+    ```
+
+    The first can be found by running
+    ```
+    python3 -c "from sysconfig import get_paths as gp; print(gp()['include'])"
+    ```
+    The latter can be found by running 
+    ```
+    python3 -c "import numpy; print(numpy.get_include())"
+    ```
+
+    The outputs of these commands should replace `<path_to_python_include>` and `<path_to_numpy_include>` respectively.
+
 
 
 
