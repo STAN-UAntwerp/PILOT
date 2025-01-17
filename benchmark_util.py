@@ -67,14 +67,27 @@ class Dataset:
 
     def summary(
         self,
-        include_fields=["id", "name", "n_samples", "n_features", "rows_removed", "cols_removed"],
+        include_fields=[
+            "id",
+            "name",
+            "n_samples",
+            "n_features",
+            "rows_removed",
+            "cols_removed",
+        ],
     ):
         return {field: getattr(self, field) for field in include_fields}
-    
+
     def apply_transformer(self, feature_name: str, transformer: PowerTransformer):
-        self.X.loc[:, feature_name] = transformer.transform(self.X.loc[:, [feature_name]]).flatten() 
-        self.X_oh_encoded.loc[:, feature_name] = transformer.transform(self.X_oh_encoded.loc[:, [feature_name]]).flatten()
-        self.X.loc[:, feature_name] = transformer.transform(self.X.loc[:, [feature_name]]).flatten()
+        self.X.loc[:, feature_name] = transformer.transform(
+            self.X.loc[:, [feature_name]]
+        ).flatten()
+        self.X_oh_encoded.loc[:, feature_name] = transformer.transform(
+            self.X_oh_encoded.loc[:, [feature_name]]
+        ).flatten()
+        self.X_label_encoded.loc[:, feature_name] = transformer.transform(
+            self.X_label_encoded.loc[:, [feature_name]]
+        ).flatten()
 
 
 @dataclass
@@ -92,11 +105,12 @@ class FitResult:
         d.update(self.kwargs)
         return d
 
+
 def _load_uci_data(
-    repo_id: int, 
+    repo_id: int,
     ignore_feat: list[str] | None = None,
-    logtransform_target: bool = False
-    ) -> Dataset:
+    logtransform_target: bool = False,
+) -> Dataset:
     data = fetch_ucirepo(id=repo_id)
     variables = data.variables.set_index("name")
     X = data.data.features
@@ -130,22 +144,24 @@ def _load_uci_data(
     cat_ids = [
         i
         for i, c in enumerate(X.columns)
-        if (variables.loc[c, "type"] not in ["Continuous", "Integer"]) or (X[c].nunique() < 5)
+        if (variables.loc[c, "type"] not in ["Continuous", "Integer"])
+        or (X[c].nunique() < 5)
     ]
     cat_names = X.columns[cat_ids]
 
     oh_encoder = OneHotEncoder(sparse_output=False).fit(X[cat_names])
+
     X_oh_encoded = pd.concat(
         [
             X.drop(columns=cat_names),
             pd.DataFrame(
-                oh_encoder.transform(X[cat_names]),
+                oh_encoder.transform(X.loc[:, cat_names]),
                 columns=oh_encoder.get_feature_names_out(),
                 index=X.index,
             ),
         ],
         axis=1,
-    ).astype(np.float64).loc[:, X.columns] # ensure same column order
+    ).astype(np.float64)
 
     label_encoders = {col: LabelEncoder().fit(X[col]) for col in cat_names}
     X_label_encoded = X.copy()
@@ -168,10 +184,11 @@ def _load_uci_data(
         cols_removed=cols_removed,
     )
 
+
 def _get_date_columns(df):
     date_columns = []
     for col in df.columns:
-        if df[col].dtype.kind in 'biufc':
+        if df[col].dtype.kind in "biufc":
             continue
         try:
             pd.to_datetime(df[col])
@@ -179,21 +196,22 @@ def _get_date_columns(df):
         except (ValueError, TypeError):
             continue
     return date_columns
-  
+
+
 def _load_pmlb_data(
-    repo_id: str, 
+    repo_id: str,
     ignore_feat: list[str] | None = None,
-    logtransform_target: bool = False
-    ) -> Dataset:
+    logtransform_target: bool = False,
+) -> Dataset:
     data = fetch_data(repo_id)
-    X = data.drop(columns=['target'])
+    X = data.drop(columns=["target"])
     date_cols = _get_date_columns(X)
     ignore_feat = ignore_feat + date_cols if ignore_feat is not None else date_cols
     if len(ignore_feat) > 0:
         print(f"Dropping features: {ignore_feat}")
         X = X.drop(columns=ignore_feat)
     X = X.replace("?", np.nan)
-    y = data['target'].astype(np.float64)
+    y = data["target"].astype(np.float64)
     pd.options.mode.use_inf_as_na = True
     rows_removed = 0
     cols_removed = 0
@@ -217,7 +235,7 @@ def _load_pmlb_data(
     cat_ids = [
         i
         for i, c in enumerate(X.columns)
-        if (X[c].nunique() < 5) or (X.dtypes[c] == 'O')
+        if (X[c].nunique() < 5) or (X.dtypes[c] == "O")
     ]
     cat_names = X.columns[cat_ids]
 
@@ -232,7 +250,7 @@ def _load_pmlb_data(
             ),
         ],
         axis=1,
-    ).astype(np.float64).loc[:, X.columns] # ensure same column order
+    ).astype(np.float64)
 
     label_encoders = {col: LabelEncoder().fit(X[col]) for col in cat_names}
     X_label_encoded = X.copy()
@@ -242,7 +260,7 @@ def _load_pmlb_data(
 
     return Dataset(
         id=f"pmlb_{repo_id.split('_')[0]}",
-        name='_'.join(repo_id.split('_')[1:]),
+        name="_".join(repo_id.split("_")[1:]),
         X=X,
         X_oh_encoded=X_oh_encoded,
         X_label_encoded=X_label_encoded,
@@ -254,8 +272,7 @@ def _load_pmlb_data(
         rows_removed=rows_removed,
         cols_removed=cols_removed,
     )
-    
-    
+
 
 @retry(ConnectionError, tries=5, delay=10)
 def load_data(
@@ -263,26 +280,27 @@ def load_data(
     ignore_feat: list[str] | None = None,
     use_download: bool = True,
     logtransform_target: bool = False,
-    kind: Literal['uci', 'pmlb'] = 'uci'
+    kind: Literal["uci", "pmlb"] = "uci",
 ) -> Dataset:
     if use_download:
-        path = pathlib.Path(__file__).parent.resolve() / "Data" / f"{kind}_{repo_id}.pkl"
+        path = (
+            pathlib.Path(__file__).parent.resolve() / "Data" / f"{kind}_{repo_id}.pkl"
+        )
         if path.exists():
             print(f"Loading data from {path}")
             dataset = joblib.load(path)
             return dataset
         else:
-            print(f"use_dowload was True, but path {path} does not exist. Trying to download.")
-    
-    if kind == 'uci':
+            print(
+                f"use_dowload was True, but path {path} does not exist. Trying to download."
+            )
+
+    if kind == "uci":
         return _load_uci_data(repo_id, ignore_feat, logtransform_target)
-    elif kind == 'pmlb':
+    elif kind == "pmlb":
         return _load_pmlb_data(repo_id, ignore_feat, logtransform_target)
     else:
         raise ValueError(f"kind must be one of 'uci' or 'pmlb' but received {kind}")
-
-    
-    
 
 
 def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
@@ -295,10 +313,14 @@ def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
 
-def fit_pilot(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+def fit_pilot(
+    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
+) -> FitResult:
     t1 = time.time()
     model = PILOT(**init_kwargs)
     model.fit(
@@ -312,7 +334,9 @@ def fit_pilot(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> F
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
 
 def fit_cpilot(
@@ -327,7 +351,7 @@ def fit_cpilot(
     max_node_features=1,
     rel_tolerance=0.01,
     precision_scale=1e-10,
-    max_pivot: float | None = None
+    max_pivot: float | None = None,
 ) -> FitResult:
     t1 = time.time()
     max_features = (
@@ -359,10 +383,14 @@ def fit_cpilot(
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
 
-def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+def fit_random_forest(
+    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
+) -> FitResult:
     t1 = time.time()
     model = RandomForestRegressor(**init_kwargs)
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
@@ -372,9 +400,14 @@ def fit_random_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwar
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
-def fit_ridge(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+
+def fit_ridge(
+    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
+) -> FitResult:
     t1 = time.time()
     model = Ridge(**init_kwargs)
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
@@ -384,9 +417,14 @@ def fit_ridge(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> F
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
-def fit_lasso(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+
+def fit_lasso(
+    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
+) -> FitResult:
     t1 = time.time()
     model = Lasso(**init_kwargs)
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
@@ -396,10 +434,14 @@ def fit_lasso(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> F
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
 
-def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwargs) -> FitResult:
+def fit_pilot_forest(
+    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
+) -> FitResult:
     t1 = time.time()
     model = RandomForestPilot(**init_kwargs)
     model.fit(
@@ -414,7 +456,9 @@ def fit_pilot_forest(train_dataset: Dataset, test_dataset: Dataset, **init_kwarg
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
 
 
 def fit_cpilot_forest(
@@ -432,7 +476,7 @@ def fit_cpilot_forest(
     df_settings: dict[str, int] | None = None,
     rel_tolerance: float = 1e-2,
     precision_scale: float = 1e-10,
-    max_pivot: int | float = None
+    max_pivot: int | float = None,
 ) -> FitResult:
     t1 = time.time()
     model = RandomForestCPilot(
@@ -448,7 +492,7 @@ def fit_cpilot_forest(
         rel_tolerance=rel_tolerance,
         precision_scale=precision_scale,
         random_state=random_state,
-        max_pivot=max_pivot
+        max_pivot=max_pivot,
     )
     model.fit(
         train_dataset.X_label_encoded.values,
@@ -463,35 +507,40 @@ def fit_cpilot_forest(
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
     # mean tree depth
-    depths = pd.concat([e.tree_summary()[['depth', 'model_depth']].max().to_frame().T for e in model.estimators]).agg(['mean', 'max'])
-    
+    depths = pd.concat(
+        [
+            e.tree_summary()[["depth", "model_depth"]].max().to_frame().T
+            for e in model.estimators
+        ]
+    ).agg(["mean", "max"])
+
     return FitResult(
-        r2=r2, 
-        mse=mse, 
-        mae=mae, 
-        fit_duration=t2 - t1, 
+        r2=r2,
+        mse=mse,
+        mae=mae,
+        fit_duration=t2 - t1,
         predict_duration=t3 - t2,
         kwargs=dict(
-            mean_tree_depth=depths.loc['mean', 'depth'],
-            max_tree_depth=depths.loc['max', 'depth'],
-            mean_tree_model_depth=depths.loc['mean', 'model_depth'],
-            max_tree_model_depth=depths.loc['max', 'model_depth']
-        )
+            mean_tree_depth=depths.loc["mean", "depth"],
+            max_tree_depth=depths.loc["max", "depth"],
+            mean_tree_model_depth=depths.loc["mean", "model_depth"],
+            max_tree_model_depth=depths.loc["max", "model_depth"],
+        ),
     )
 
 
 def fit_xgboost(
-    train_dataset: Dataset, 
-    test_dataset: Dataset, 
-    max_depth: int = 6, 
+    train_dataset: Dataset,
+    test_dataset: Dataset,
+    max_depth: int = 6,
     max_node_features: float = 1,
-    n_estimators: int = 100
+    n_estimators: int = 100,
 ) -> FitResult:
     t1 = time.time()
     model = xgb.XGBRegressor(
-        max_depth=max_depth, 
-        colsample_bynode=max_node_features, 
-        n_estimators=n_estimators
+        max_depth=max_depth,
+        colsample_bynode=max_node_features,
+        n_estimators=n_estimators,
     )
     model.fit(
         train_dataset.X_oh_encoded.values,
@@ -503,4 +552,6 @@ def fit_xgboost(
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
     mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2)
+    return FitResult(
+        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
+    )
