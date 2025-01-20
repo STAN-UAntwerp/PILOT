@@ -79,15 +79,17 @@ class Dataset:
         return {field: getattr(self, field) for field in include_fields}
 
     def apply_transformer(self, feature_name: str, transformer: PowerTransformer):
-        self.X.loc[:, feature_name] = transformer.transform(
-            self.X.loc[:, [feature_name]]
-        ).flatten()
-        self.X_oh_encoded.loc[:, feature_name] = transformer.transform(
-            self.X_oh_encoded.loc[:, [feature_name]]
-        ).flatten()
-        self.X_label_encoded.loc[:, feature_name] = transformer.transform(
-            self.X_label_encoded.loc[:, [feature_name]]
-        ).flatten()
+        self.X.loc[:, feature_name] = np.nan_to_num(
+            transformer.transform(self.X.loc[:, [feature_name]]).flatten()
+        )
+        self.X_oh_encoded.loc[:, feature_name] = np.nan_to_num(
+            transformer.transform(self.X_oh_encoded.loc[:, [feature_name]]).flatten()
+        )
+        self.X_label_encoded.loc[:, feature_name] = np.nan_to_num(
+            transformer.transform(self.X_label_encoded.loc[:, [feature_name]]).flatten()
+        )
+        
+        
 
 
 @dataclass
