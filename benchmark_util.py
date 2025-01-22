@@ -79,17 +79,41 @@ class Dataset:
         return {field: getattr(self, field) for field in include_fields}
 
     def apply_transformer(self, feature_name: str, transformer: PowerTransformer):
-        self.X.loc[:, feature_name] = np.nan_to_num(
-            transformer.transform(self.X.loc[:, [feature_name]]).flatten()
+        self.X.loc[:, feature_name] = np.clip(
+            np.nan_to_num(
+                transformer.transform(self.X.loc[:, [feature_name]]).flatten(),
+                posinf=0, neginf=0
+            ), 
+            -1e30, 1e30
         )
-        self.X_oh_encoded.loc[:, feature_name] = np.nan_to_num(
-            transformer.transform(self.X_oh_encoded.loc[:, [feature_name]]).flatten()
+        self.X_oh_encoded.loc[:, feature_name] = np.clip(
+            np.nan_to_num(
+                transformer.transform(self.X_oh_encoded.loc[:, [feature_name]]).flatten(),
+                posinf=0, neginf=0
+            ),
+            -1e30, 1e30
         )
-        self.X_label_encoded.loc[:, feature_name] = np.nan_to_num(
-            transformer.transform(self.X_label_encoded.loc[:, [feature_name]]).flatten()
+        self.X_label_encoded.loc[:, feature_name] = np.clip(
+            np.nan_to_num(
+                transformer.transform(self.X_label_encoded.loc[:, [feature_name]]).flatten(),
+                posinf=0, neginf=0
+            ),
+            -1e30, 1e30
         )
         
         
+def fit_transformers(dataset: Dataset):
+    transformers = {}
+    for col in dataset.X.columns:
+        if col in dataset.cat_names:
+            continue
+        try: 
+            t = PowerTransformer().fit(dataset.X.loc[:, [col]]) 
+            transformers[col] = t
+        except ValueError as e:
+            print(f"Could not fit transformer on column {col}, skipping.", e)
+            continue
+    return transformers
 
 
 @dataclass
@@ -310,7 +334,11 @@ def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
     model = DecisionTreeRegressor()
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
     t2 = time.time()
-    y_pred = model.predict(test_dataset.X_oh_encoded)
+    try:
+        y_pred = model.predict(test_dataset.X_oh_encoded)
+    except:
+        test_dataset.X_oh_encoded.to_csv('/tmp/data.csv', index=False)
+        raise
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))

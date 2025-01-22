@@ -20,6 +20,7 @@ from benchmark_util import *
 def print_with_timestamp(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}")
+    
 
 OUTPUTFOLDER = pathlib.Path(__file__).parent / "Output"
 DATAFOLDER = pathlib.Path(__file__).parent / "Data"
@@ -94,11 +95,8 @@ def run_benchmark(experiment_name):
             train_dataset = dataset.subset(train)
             test_dataset = dataset.subset(test)
             
-            transformers = {
-                col: PowerTransformer().fit(train_dataset.X.loc[:, [col]]) 
-                for col in train_dataset.X.columns 
-                if col not in train_dataset.cat_names
-            }
+            transformers = fit_transformers(train_dataset)
+            
             for col, transformer in transformers.items():
                 train_dataset.apply_transformer(col, transformer)
                 test_dataset.apply_transformer(col, transformer)
