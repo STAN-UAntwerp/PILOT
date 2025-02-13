@@ -17,8 +17,7 @@ from sklearn.preprocessing import PowerTransformer
 from ucimlrepo import fetch_ucirepo
 from pmlb import fetch_data
 
-from pilot import PILOT, CPILOT
-from pilot.ensemble import RandomForestPilot
+from pilot import CPILOT
 from pilot.c_ensemble import RandomForestCPilot
 
 
@@ -82,33 +81,43 @@ class Dataset:
         self.X.loc[:, feature_name] = np.clip(
             np.nan_to_num(
                 transformer.transform(self.X.loc[:, [feature_name]]).flatten(),
-                posinf=0, neginf=0
-            ), 
-            -1e30, 1e30
+                posinf=0,
+                neginf=0,
+            ),
+            -1e30,
+            1e30,
         )
         self.X_oh_encoded.loc[:, feature_name] = np.clip(
             np.nan_to_num(
-                transformer.transform(self.X_oh_encoded.loc[:, [feature_name]]).flatten(),
-                posinf=0, neginf=0
+                transformer.transform(
+                    self.X_oh_encoded.loc[:, [feature_name]]
+                ).flatten(),
+                posinf=0,
+                neginf=0,
             ),
-            -1e30, 1e30
+            -1e30,
+            1e30,
         )
         self.X_label_encoded.loc[:, feature_name] = np.clip(
             np.nan_to_num(
-                transformer.transform(self.X_label_encoded.loc[:, [feature_name]]).flatten(),
-                posinf=0, neginf=0
+                transformer.transform(
+                    self.X_label_encoded.loc[:, [feature_name]]
+                ).flatten(),
+                posinf=0,
+                neginf=0,
             ),
-            -1e30, 1e30
+            -1e30,
+            1e30,
         )
-        
-        
+
+
 def fit_transformers(dataset: Dataset):
     transformers = {}
     for col in dataset.X.columns:
         if col in dataset.cat_names:
             continue
-        try: 
-            t = PowerTransformer().fit(dataset.X.loc[:, [col]]) 
+        try:
+            t = PowerTransformer().fit(dataset.X.loc[:, [col]])
             transformers[col] = t
         except ValueError as e:
             print(f"Could not fit transformer on column {col}, skipping.", e)
@@ -337,29 +346,8 @@ def fit_cart(train_dataset: Dataset, test_dataset: Dataset) -> FitResult:
     try:
         y_pred = model.predict(test_dataset.X_oh_encoded)
     except:
-        test_dataset.X_oh_encoded.to_csv('/tmp/data.csv', index=False)
+        test_dataset.X_oh_encoded.to_csv("/tmp/data.csv", index=False)
         raise
-    t3 = time.time()
-    r2 = float(r2_score(test_dataset.y, y_pred))
-    mse = float(mean_squared_error(test_dataset.y, y_pred))
-    mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(
-        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
-    )
-
-
-def fit_pilot(
-    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
-) -> FitResult:
-    t1 = time.time()
-    model = PILOT(**init_kwargs)
-    model.fit(
-        train_dataset.X_label_encoded.values,
-        train_dataset.y.values,
-        categorical=train_dataset.categorical,
-    )
-    t2 = time.time()
-    y_pred = model.predict(test_dataset.X_label_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))
@@ -460,28 +448,6 @@ def fit_lasso(
     model.fit(train_dataset.X_oh_encoded, train_dataset.y)
     t2 = time.time()
     y_pred = model.predict(test_dataset.X_oh_encoded)
-    t3 = time.time()
-    r2 = float(r2_score(test_dataset.y, y_pred))
-    mse = float(mean_squared_error(test_dataset.y, y_pred))
-    mae = float(median_absolute_error(test_dataset.y, y_pred))
-    return FitResult(
-        r2=r2, mse=mse, mae=mae, fit_duration=t2 - t1, predict_duration=t3 - t2
-    )
-
-
-def fit_pilot_forest(
-    train_dataset: Dataset, test_dataset: Dataset, **init_kwargs
-) -> FitResult:
-    t1 = time.time()
-    model = RandomForestPilot(**init_kwargs)
-    model.fit(
-        train_dataset.X_label_encoded.values,
-        train_dataset.y.values,
-        categorical_idx=train_dataset.categorical,
-        n_workers=1,
-    )
-    t2 = time.time()
-    y_pred = model.predict(test_dataset.X_label_encoded.values)
     t3 = time.time()
     r2 = float(r2_score(test_dataset.y, y_pred))
     mse = float(mean_squared_error(test_dataset.y, y_pred))

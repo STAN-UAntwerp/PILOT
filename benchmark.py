@@ -2,7 +2,6 @@ import pathlib
 import click
 import os
 import glob
-import re
 import psutil
 import itertools
 import numpy as np
@@ -10,17 +9,16 @@ import pandas as pd
 
 from datetime import datetime
 from sklearn.model_selection import KFold
-from sklearn.linear_model._coordinate_descent import _alpha_grid 
-from sklearn.preprocessing import PowerTransformer
+from sklearn.linear_model._coordinate_descent import _alpha_grid
 
 from pilot import DEFAULT_DF_SETTINGS
-from benchmark_config import LOGTRANSFORM_TARGET, UCI_DATASET_IDS, IGNORE_COLUMNS
 from benchmark_util import *
 
+
 def print_with_timestamp(message):
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] {message}")
-    
+
 
 OUTPUTFOLDER = pathlib.Path(__file__).parent / "Output"
 DATAFOLDER = pathlib.Path(__file__).parent / "Data"
@@ -69,13 +67,13 @@ def run_benchmark(experiment_name):
 
     repo_ids_to_process = [
         pathlib.Path(f).stem
-        for f in glob.glob(os.path.join(DATAFOLDER, '*')) 
+        for f in glob.glob(os.path.join(DATAFOLDER, "*"))
         if pathlib.Path(f).stem not in processed_repo_ids
     ]
 
     for repo_id in repo_ids_to_process:
         print_with_timestamp(repo_id)
-        kind, repo_id = repo_id.split('_')
+        kind, repo_id = repo_id.split("_")
         dataset = load_data(repo_id=repo_id, kind=kind)
         if dataset.n_samples > 2e5:
             print_with_timestamp(f"Skipping large dataset {repo_id}")
@@ -91,41 +89,22 @@ def run_benchmark(experiment_name):
         )
         for i, (train, test) in enumerate(cv.split(dataset.X, dataset.y), start=1):
             print_with_timestamp(f"\tFold {i} / 5")
-            print('\tRAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
+            print("\tRAM Used (GB):", psutil.virtual_memory()[3] / 1000000000)
             train_dataset = dataset.subset(train)
             test_dataset = dataset.subset(test)
-            
+
             transformers = fit_transformers(train_dataset)
-            
+
             for col, transformer in transformers.items():
                 train_dataset.apply_transformer(col, transformer)
                 test_dataset.apply_transformer(col, transformer)
-                
 
             # CART
             print_with_timestamp("\t\tCART")
             r = fit_cart(train_dataset=train_dataset, test_dataset=test_dataset)
-            results.append(dict(**dataset.summary(), fold=i, model="CART", **r.asdict()))
-
-            # # PILOT
-            # r = fit_pilot(
-            #     train_dataset=train_dataset,
-            #     test_dataset=test_dataset,
-            #     max_depth=20,
-            #     truncation_factor=1,
-            #     rel_tolerance=0.01,
-            # )
-            # results.append(dict(**dataset.summary(), fold=i, model="PILOT", **r.asdict()))
-
-            # r = fit_pilot(
-            #     train_dataset=train_dataset,
-            #     test_dataset=test_dataset,
-            #     max_depth=20,
-            #     truncation_factor=1,
-            #     rel_tolerance=0.01,
-            #     regression_nodes=["con", "lin", "pcon", "plin"],
-            # )
-            # results.append(dict(**dataset.summary(), fold=i, model="PILOT - no blin", **r.asdict()))
+            results.append(
+                dict(**dataset.summary(), fold=i, model="CART", **r.asdict())
+            )
 
             print_with_timestamp("\t\tCPILOT")
             r = fit_cpilot(
@@ -133,11 +112,15 @@ def run_benchmark(experiment_name):
                 test_dataset=test_dataset,
                 max_depth=20,
             )
-            results.append(dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict()))
+            results.append(
+                dict(**dataset.summary(), fold=i, model="CPILOT", **r.asdict())
+            )
 
             # RF
             for md, mf, nt in itertools.product([6, 20, None], [0.7, 1.0], [100]):
-                model_name = f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
+                model_name = (
+                    f"RF - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
+                )
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_random_forest(
                     train_dataset=train_dataset,
@@ -148,38 +131,22 @@ def run_benchmark(experiment_name):
                 )
                 results.append(
                     dict(
-                        **dataset.summary(), 
-                        fold=i, 
-                        model=model_name, 
-                        **r.asdict(), 
-                        max_depth=md, 
+                        **dataset.summary(),
+                        fold=i,
+                        model=model_name,
+                        **r.asdict(),
+                        max_depth=md,
                         max_features=mf,
-                        n_estimators=nt
+                        n_estimators=nt,
                     )
                 )
 
-            # # PF
-            # r = fit_pilot_forest(
-            #     train_dataset=train_dataset,
-            #     test_dataset=test_dataset,
-            #     max_depth=20,
-            #     n_estimators=100,
-            #     truncation_factor=1,
-            #     rel_tolerance=0.01,
-            # )
-            # results.append(dict(**dataset.summary(), fold=i, model="PF", **r.asdict()))
-
-            # r = fit_pilot_forest(
-            #     train_dataset=train_dataset,
-            #     test_dataset=test_dataset,
-            #     max_depth=20,
-            #     n_estimators=100,
-            #     truncation_factor=1,
-            #     rel_tolerance=0.01,
-            #     regression_nodes=["con", "lin", "pcon", "plin"],
-            # )
-            # results.append(dict(**dataset.summary(), fold=i, model="PF - no blin", **r.asdict()))
-            for j, ((df_name, alpha, df_setting), max_depth, max_features, ntrees) in enumerate(
+            for j, (
+                (df_name, alpha, df_setting),
+                max_depth,
+                max_features,
+                ntrees,
+            ) in enumerate(
                 itertools.product(
                     [
                         # ("default df", 1, DEFAULT_DF_SETTINGS),
@@ -187,11 +154,11 @@ def run_benchmark(experiment_name):
                         ("df alpha = 0.01, no blin", 0.01, df_setting_alpha01_no_blin),
                         ("df no blin", 1, df_setting_no_blin),
                         # ("df alpha = 0.5", 0.5, df_setting_alpha5),
-                        ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin)
+                        ("df alpha = 0.5, no blin", 0.5, df_setting_alpha5_no_blin),
                     ],
                     [6, 20],
                     [0.7, 1.0],
-                    [100]
+                    [100],
                 )
             ):
                 model_name = f"CPF - {df_name} - max_depth = {max_depth} - max_node_features = {max_features} - n_estimators = {ntrees}"
@@ -206,7 +173,7 @@ def run_benchmark(experiment_name):
                     max_depth=max_depth,
                     n_features_node=max_features,
                     df_settings=df_setting,
-                    max_pivot=10000
+                    max_pivot=10000,
                 )
                 results.append(
                     dict(
@@ -219,7 +186,7 @@ def run_benchmark(experiment_name):
                         alpha=alpha,
                         max_depth=max_depth,
                         max_features=max_features,
-                        n_estimators=ntrees
+                        n_estimators=ntrees,
                     )
                 )
 
@@ -228,21 +195,21 @@ def run_benchmark(experiment_name):
                 model_name = f"XGB - max_depth = {md} - max_features = {mf} - n_estimators = {nt}"
                 print_with_timestamp(f"\t\t{model_name}")
                 r = fit_xgboost(
-                    train_dataset=train_dataset, 
-                    test_dataset=test_dataset, 
-                    max_depth=md, 
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    max_depth=md,
                     max_node_features=mf,
-                    n_estimators=nt
+                    n_estimators=nt,
                 )
                 results.append(
                     dict(
-                        **dataset.summary(), 
-                        fold=i, 
-                        model=model_name, 
-                        **r.asdict(), 
-                        max_depth=md, 
+                        **dataset.summary(),
+                        fold=i,
+                        model=model_name,
+                        **r.asdict(),
+                        max_depth=md,
                         max_features=mf,
-                        n_estimators=nt
+                        n_estimators=nt,
                     )
                 )
             # linear models

@@ -1,11 +1,14 @@
 This is an implementation for the PIecewise Linear Organic Tree (PILOT), a linear model tree algorithm proposed in the paper Raymaekers, J., Rousseeuw, P. J., Verdonck, T., & Yao, R. (2024). Fast linear model trees by PILOT. Machine Learning, 1-50. https://doi.org/10.1007/s10994-024-06590-3.
 
+This repository also includes the implementation for RaFFLE, a random forest of PILOT trees:
+Raymaekers, J., Rousseeuw, P. J., Servotte, T., Verdonck, T., & Yao, R. (2025). A Powerful Random Forest Featuring Linear Extensions (RaFFLE). _Under Review_
+
 ### Requirements:
-numba==0.55.1  
-numpy==1.21.2  
-pandas==1.4.1
-
-
+Requirements can be installed by running
+```
+pip install -r requirements.txt
+```
+The RaFFLE implementation uses a c++ version of pilot for computational speed.
 To build the c++ wrapper, follow these steps:
 
 1. Make sure the necessary dependencies are installed
@@ -79,5 +82,26 @@ To build the c++ wrapper, follow these steps:
     The outputs of these commands should replace `<path_to_python_include>` and `<path_to_numpy_include>` respectively.
 
 
+### Example
+You can run an example for RaFFLE with the [raffle_example.py](raffle_example.py) script.
 
+### RaFFLE benchmark
+To run the same benchmark as described in the RaFFLE paper, you first need to download all the benchmark datasets using the [download_data.py](download_data.py) script.
+
+```
+python download_data.py
+```
+
+Next you can run benchmark by running the [benchmark.py](benchmark.py) script:
+```
+python benchmark.py
+```
+
+Results will be stored in the `Output` folder.
+
+The plots from the paper are created with the [paperplots.py](paperplots.py) script. You can create all plots by running:
+
+```
+python paperplots.py --all
+```
 
