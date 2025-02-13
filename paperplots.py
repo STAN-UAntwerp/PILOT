@@ -52,19 +52,15 @@ def load_basetable():
 def get_transformation_table():
     original_results = pd.concat(
         [
+            pd.read_csv(outputfolder / "cpilot_forest_benchmark_v11/results.csv"),
             pd.read_csv(
-                "/home/servot82/PILOT/Output/cpilot_forest_benchmark_v11/results.csv"
-            ),
-            pd.read_csv(
-                "/home/servot82/PILOT/Output/cpilot_forest_benchmark_v11_linear_models3/results.csv"
+                outputfolder / "cpilot_forest_benchmark_v11_linear_models3/results.csv"
             ),
         ],
         axis=0,
     )
 
-    new_results = pd.read_csv(
-        "/home/servot82/PILOT/Output/benchmark_power_transform_v2/results.csv"
-    )
+    new_results = pd.read_csv(outputfolder / "benchmark_power_transform_v2/results.csv")
 
     original_results = (
         original_results.groupby(["id", "model"])["r2"].mean().reset_index()
@@ -166,6 +162,54 @@ def plot_delta_transform(transformtable):
     fig.savefig(outputfolder / "paperplots" / "boxplots_transform.pdf", dpi=300)
 
 
+def plot_linear_convergence():
+    df = pd.read_csv(outputfolder / "linear_experiment_v1" / "results.csv")
+    df = (
+        df.groupby(["noise", "n_samples", "model"])["r2"]
+        .mean()
+        .reset_index()
+        .rename(
+            columns={
+                "noise": "noise standard deviation",
+                "n_samples": "Training set size",
+                "model": "Method",
+            }
+        )
+    )
+
+    g = sns.FacetGrid(
+        df,
+        col="noise standard deviation",
+        hue="Method",
+        height=4,
+        aspect=1.5,
+        col_wrap=2,
+    )
+
+    # Add line plots with markers
+    g.map(sns.lineplot, "Training set size", "r2", marker="o")
+
+    # Add reference lines (adjust these based on actual data)
+    for ax, (noise, subset) in zip(
+        g.axes.flat, df.groupby(["noise standard deviation"])
+    ):
+        subset = subset.pivot(columns="Method", index="Training set size", values="r2")
+        x1 = subset[subset["CPF"] > 0.97 * subset["LR"]].index.min()
+        x2 = subset[subset["CPF"] > 0.99 * subset["LR"]].index.min()
+        ax.axvline(
+            x=x1, linestyle=":", color="black", label="RaFFLE reaches 97% of OLS"
+        )
+        ax.axvline(
+            x=x2, linestyle="--", color="black", label="RaFFLE reaches 99% of OLS"
+        )
+
+    # Adjust labels
+    g.set_axis_labels("Number of Samples", "Average $R^2$")
+    g.add_legend(title="Method")
+
+    plt.savefig(figurefolder / "linear_convergence.png")
+
+
 @click.command()
 @click.option(
     "--overall_boxplot",
@@ -182,9 +226,16 @@ def plot_delta_transform(transformtable):
     is_flag=True,
     help="Plot R2 delta's due to power transform on numerical variables",
 )
+@click.option(
+    "--linear_convergence",
+    is_flag=True,
+    help="Plot R2 on test set against number of training samples for different noise levels.",
+)
 @click.option("--all", is_flag=True, help="Create all plots")
 @click.pass_context
-def main(ctx, overall_boxplot, typed_boxplot, transform_boxplot, all):
+def main(
+    ctx, overall_boxplot, typed_boxplot, transform_boxplot, linear_convergence, all
+):
     if overall_boxplot or all:
         plot_overall_boxplot(ctx.obj["reltable"])
     if typed_boxplot or all:
@@ -192,6 +243,8 @@ def main(ctx, overall_boxplot, typed_boxplot, transform_boxplot, all):
     if transform_boxplot or all:
         transformtable = get_transformation_table()
         plot_delta_transform(transformtable)
+    if linear_convergence or all:
+        plot_linear_convergence()
 
 
 if __name__ == "__main__":
