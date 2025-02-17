@@ -992,10 +992,13 @@ arma::vec PILOT::predict(const arma::mat &X) const
           nd = nd->right.get();
         }
       }
+      // y-truncation
+      yhati = std::clamp(yhati, lowerBound, upperBound);
     }
     // now at con node: still need to subtract intercept
 
     yhati += (nd->intL);
+    yhati = std::clamp(yhati, lowerBound, upperBound);
     yhat(i) = yhati;
   }
 
