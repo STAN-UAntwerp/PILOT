@@ -69,7 +69,7 @@ def run_benchmark(experiment_name):
                 X_train_subset = X_train[: min(n_train, len(X_train)), :]
                 y_train_subset = y_train[: min(n_train, len(y_train))]
 
-                print("RaFFLE")
+                print("\t\t\tRaFFLE")
                 cpf = RandomForestCPilot(
                     n_estimators=100,
                     max_depth=20,
@@ -96,7 +96,7 @@ def run_benchmark(experiment_name):
                     }
                 )
 
-                print("RF")
+                print("\t\t\tRF")
                 rf = RandomForestRegressor(n_estimators=100)
                 rf.fit(X_train_subset, y_train_subset)
                 pred = rf.predict(X_test)
@@ -110,7 +110,7 @@ def run_benchmark(experiment_name):
                     }
                 )
 
-                print("LR")
+                print("\t\t\tLR")
                 lr = LinearRegression()
                 lr.fit(X_train_subset, y_train_subset)
                 pred = lr.predict(X_test)
@@ -124,16 +124,16 @@ def run_benchmark(experiment_name):
                     }
                 )
 
-                print("XGB")
+                print("\t\t\tXGB")
                 xgbr = xgb.XGBRegressor()
                 xgbr.fit(X_train_subset, y_train_subset)
-                pred = lr.predict(X_test)
+                pred = xgbr.predict(X_test)
                 results.append(
                     {
                         "iter": i,
                         "noise": noise,
                         "n_samples": n_train,
-                        "model": "LR",
+                        "model": "XGB",
                         "r2": r2_score(y_test, pred),
                     }
                 )

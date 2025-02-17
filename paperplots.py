@@ -163,7 +163,7 @@ def plot_delta_transform(transformtable):
 
 
 def plot_linear_convergence():
-    df = pd.read_csv(outputfolder / "linear_experiment_v1" / "results.csv")
+    df = pd.read_csv(outputfolder / "linear_experiment_v3" / "results.csv")
     df = (
         df.groupby(["noise", "n_samples", "model"])["r2"]
         .mean()

@@ -2,10 +2,6 @@ cmake_minimum_required(VERSION 3.12)
 project(pilot_wrapper)
 
 set(CMAKE_CXX_STANDARD 17)
-set(pybind11_DIR  /home/servot82/miniconda3/envs/raffle/lib/python3.10/site-packages/pybind11/share/cmake/pybind11)
-
-set(Python3_INCLUDE_DIR /home/servot82/miniconda3/envs/raffle/include/python3.10)
-set(Python3_NumPy_INCLUDE_DIR /home/servot82/miniconda3/envs/raffle/lib/python3.10/site-packages/numpy/core/include)
 
 find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
 find_package(pybind11 REQUIRED)
