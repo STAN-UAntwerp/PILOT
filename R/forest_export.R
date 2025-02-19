@@ -1,0 +1,1 @@
+loadModule(module = "RcppRAFFLE", TRUE)

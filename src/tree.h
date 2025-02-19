@@ -62,7 +62,7 @@ class PILOT {
   
 public:
   // constructors
-  PILOT(){};
+  PILOT() : root(nullptr) {};
   PILOT(const arma::vec& dfs,
         const arma::uvec& modelParams,
         const double &rel_tolerance,
@@ -76,11 +76,14 @@ public:
   void train(const arma::mat& X,
              const arma::vec& y,
              const arma::uvec& catIds);
-  arma::colvec predict(const arma::mat& X) const;
+  arma::colvec predict(const arma::mat& X,
+                       arma::uword upToDepth) const;
   arma::mat print() const;
   arma::vec getResiduals() const;
+  
   std::string toJson() const;
   void fromJson(const std::string& json_text);
+  
   void load_from_file(const std::string& filename);
   void write_to_file(const std::string& filename) const {
     std::ofstream file(filename);
@@ -107,9 +110,7 @@ protected:
   void printNode(node* nd, arma::mat& tr) const;
   bool stopGrowing(node* nd) const; // const as it will not change anything to the PILOT object
   
-protected:
   // protected fields
-  //int _id;
   arma::vec dfs;// the degrees of freedom for 'con/lin/pcon'/'blin'/'plin/pconc'. negative values means they are not considered
   arma::uword min_sample_leaf; // the minimal number of samples required to be a leaf node
   arma::uword min_sample_alpha; // the minimal number of samples required to fit a model that splits the node.

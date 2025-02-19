@@ -14,6 +14,6 @@ RCPP_MODULE(RcppPILOT){
   .const_method("getResiduals", &PILOT::getResiduals)
   .const_method("predict", &PILOT::predict)
   .const_method("toJson", &PILOT::toJson)
-  .const_method("fromJson", &PILOT::toJson);
+  .nonconst_method("fromJson", &PILOT::fromJson);
 }
 

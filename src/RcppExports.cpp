@@ -12,9 +12,11 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 
+RcppExport SEXP _rcpp_module_boot_RcppRAFFLE();
 RcppExport SEXP _rcpp_module_boot_RcppPILOT();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_rcpp_module_boot_RcppRAFFLE", (DL_FUNC) &_rcpp_module_boot_RcppRAFFLE, 0},
     {"_rcpp_module_boot_RcppPILOT", (DL_FUNC) &_rcpp_module_boot_RcppPILOT, 0},
     {NULL, NULL, 0}
 };

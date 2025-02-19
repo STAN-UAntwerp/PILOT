@@ -6,6 +6,7 @@ importFrom("utils", "capture.output")
 
 
 export(pilot)
+export(PILOTcpp)
 S3method(predict, PILOT)
 S3method(plot, PILOT)
 S3method(print, PILOT)

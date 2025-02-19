@@ -1,7 +1,7 @@
 Package: pilot
 Type: Package
-Title: Build PILOT for regression
-Version: 1.0.0.9900
+Title: Build PILOT and RaFFLE for regression
+Version: 1.0.0.9901
 Date: 2024-12-10
 Author: c(person(given="Jakob",family="Raymaekers", role = c("aut", "cre"), 
                    email = "jakob.raymaekers@uantwerpen.be"),
@@ -11,7 +11,7 @@ Author: c(person(given="Jakob",family="Raymaekers", role = c("aut", "cre"),
           person(given="Ruicong",family="Yao", role = c("aut")))
 Maintainer: Jakob Raymaekers <jakob.raymaekers@uantwerpen.be>
 Description: Contains the implementation of the PILOT algorithm described in Raymaekers, Rousseeuw, Verdonck and Yao (2024) <doi:10.1007/s10994-024-06590-3> (open access)
-License: GPL-3 + file LICENSE
+License: GPL-3
 Imports: Rcpp (>= 1.0.12)
 Depends: methods
 LinkingTo: Rcpp, RcppArmadillo

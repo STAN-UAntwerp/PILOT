@@ -4,10 +4,12 @@
 \alias{plot.PILOT}
 \title{Plot a PILOT model}
 \usage{
-\method{plot}{PILOT}(object)
+\method{plot}{PILOT}(x, ...)
 }
 \arguments{
-\item{object}{an object of the PILOT class}
+\item{x}{an object of the PILOT class}
+
+\item{...}{other graphical parameters}
 }
 \description{
 Plot a PILOT model

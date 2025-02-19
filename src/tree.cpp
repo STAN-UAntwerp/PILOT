@@ -1,16 +1,10 @@
 #include "tree.h"
+#include "utils.h"
 
 // constructors 
 
 PILOT::PILOT(const arma::vec &dfs,
              const arma::uvec &modelParams,
-             /*const arma::uword &min_sample_leaf,
-             const arma::uword &min_sample_alpha,
-             const arma::uword &min_sample_fit,
-             const arma::uword &maxDepth,
-             const arma::uword &maxModelDepth,
-             const arma::uword &maxFeatures,
-             const arma::uword &approx,*/
              const double &rel_tolerance,
              const double &precScale) : dfs(dfs),
              min_sample_leaf(modelParams(0)),
@@ -83,7 +77,7 @@ void PILOT::train(const arma::mat &X,
       
       if (maxNbCats < x(xxorder(xxorder.n_elem - 1)))
       {
-        maxNbCats = (arma::uword)x(xxorder(xxorder.n_elem - 1));
+        maxNbCats = static_cast<arma::uword>(x(xxorder(xxorder.n_elem - 1)));
       }
     }
     Xrank.col(j) = xrank;
@@ -143,12 +137,16 @@ arma::mat PILOT::print() const
   // first the left node row is added, then right node
   // could also add modelID which increments for lin nodes as well.
   
-  arma::mat tr(0, 10);
-  if (root != nullptr)
-  { // check if tree has been constructed
-    node *nd = root.get();
-    printNode(nd, tr);
+  if (root == nullptr)
+  { 
+    throw std::logic_error("The tree is not trained, or not loaded properly.");
   }
+  
+  arma::mat tr(0, 10);
+  // check if tree has been constructed
+  node *nd = root.get();
+  printNode(nd, tr);
+  
   return tr;
 }
 
@@ -156,16 +154,16 @@ void PILOT::printNode(node *nd, arma::mat &tr) const
 {
   
   tr.insert_rows(tr.n_rows, 1);
-  arma::rowvec vec = {(double)nd->depth,
-                      (double)nd->modelDepth,
-                      (double)nd->nodeId,
-                      (double)nd->type,
-                      (double)nd->predId,
-                      (double)nd->splitVal,
-                      (double)nd->intL,
-                      (double)nd->slopeL,
-                      (double)nd->intR,
-                      (double)nd->slopeR};
+  arma::rowvec vec = {static_cast<double>(nd->depth),
+                      static_cast<double>(nd->modelDepth),
+                      static_cast<double>(nd->nodeId),
+                      static_cast<double>(nd->type),
+                      static_cast<double>(nd->predId),
+                      static_cast<double>(nd->splitVal),
+                      static_cast<double>(nd->intL),
+                      static_cast<double>(nd->slopeL),
+                      static_cast<double>(nd->intR),
+                      static_cast<double>(nd->slopeR)};
   if (nd->type == 0)
   {
     vec(4) = arma::datum::nan;
@@ -457,7 +455,7 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
   
   const arma::uword d = X.n_cols;
   const arma::uword nObs = endID - startID + 1;
-  const double n = (double)nObs; // double since we use it in many double calculations
+  const double n = static_cast<double>(nObs); // double since we use it in many double calculations
   const double logn = std::log(n);
   // first compute con as benchmark
   
@@ -503,7 +501,7 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
   bool sortLocally = false;
   bool approxed;
   
-  if (n * std::log(n) < 0.5 * (double)X.n_rows)
+  if (n * std::log(n) < 0.5 * static_cast<double>(X.n_rows))
   {
     sortLocally = true;
   }
@@ -604,6 +602,8 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
             best_type = 1;                    // node type 1 for lin
             best_intL = intL;
             best_slopeL = slopeL;
+            best_intR = arma::datum::nan;
+            best_slopeR = arma::datum::nan;
             best_rangeL = xs.front();
             best_rangeR = xs.back();
             best_bic = bic;
@@ -674,7 +674,7 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
       
       if ((approx > 0) && (n > approx))
       {
-        stepSize = std::round(n / (double)approx);
+        stepSize = std::round(n / static_cast<double>(approx));
         approxed = true;
       }
       
@@ -946,7 +946,7 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
         counts.zeros(k);
         means.zeros(k);
         pivot_c.set_size(k);
-        pivot_c.fill((double)k);
+        pivot_c.fill(static_cast<double>(k));
         
         // xunique contains the unique elements in ascending order
         // we want the counts per unique element in the same order
@@ -960,7 +960,7 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
             sums(counter) = sumsy(i);
             sums2(counter) = sumsy2(i);
             counts(counter) = IDmask(i);
-            means(counter) = sumsy(i) / ((double)IDmask(i));
+            means(counter) = sumsy(i) / (static_cast<double>(IDmask(i)));
             xunique(counter) = i;
             counter++;
           }
@@ -1055,8 +1055,13 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
   return (result);
 }
 
-arma::vec PILOT::predict(const arma::mat &X) const
+arma::vec PILOT::predict(const arma::mat &X, arma::uword upToDepth) const
 {
+  
+  if (root == nullptr)
+  { 
+    throw std::logic_error("The tree is not trained, or not loaded properly.");
+  }
   
   arma::vec yhat(X.n_rows, arma::fill::zeros);
   
@@ -1065,8 +1070,14 @@ arma::vec PILOT::predict(const arma::mat &X) const
     node *nd = root.get();
     double yhati = 0.0;
     
+    bool restrictedDepth = false;
     while (nd->type != 0)
     {
+      if (nd->depth > upToDepth) {
+        restrictedDepth = true;
+        break;
+      }
+      
       double x = std::clamp(X(i, nd->predId), nd->rangeL, nd->rangeR);
       if (nd->type == 1)
       { // lin
@@ -1100,10 +1111,14 @@ arma::vec PILOT::predict(const arma::mat &X) const
           nd = nd->right.get();
         }
       }
+      yhati = std::clamp(yhati, lowerBound, upperBound);
     }
-    // now at con node: still need to subtract intercept
-    
-    yhati += (nd->intL);
+    // if predicted at full depth, we are now at con node:
+    // still need to subtract intercept (only makes a difference for blin)
+    if (!restrictedDepth) { // in case prediction depth is limited
+      yhati += (nd->intL);
+      yhati = std::clamp(yhati, lowerBound, upperBound);
+    }
     yhat(i) = yhati;
   }
   
@@ -1114,114 +1129,6 @@ arma::vec PILOT::predict(const arma::mat &X) const
 
 // JSON parsing
 
-// Utility to strip leading and trailing spaces
-std::string trim(const std::string &str)
-{
-  size_t start = str.find_first_not_of(" \t\n\r");
-  size_t end = str.find_last_not_of(" \t\n\r");
-  return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
-}
-
-// Utility to parse a JSON array into an Armadillo vector
-arma::vec parse_json_array(const std::string &json_array)
-{
-  arma::vec result;
-  std::stringstream ss(json_array.substr(1, json_array.size() - 2)); // Remove square brackets
-  std::string item;
-  
-  while (std::getline(ss, item, ','))
-  {
-    result.insert_rows(result.n_elem, 1);              // Expand the vector
-    result(result.n_elem - 1) = std::stod(trim(item)); // Convert to double
-  }
-  return result;
-}
-
-template <typename VecType>
-std::string arma_vec_to_json(const VecType &vec)
-{
-  std::ostringstream oss;
-  oss << "[";
-  
-  for (size_t i = 0; i < vec.n_elem; ++i)
-  {
-    oss << vec(i);
-    if (i != vec.n_elem - 1)
-    {
-      oss << ", ";
-    }
-  }
-  
-  oss << "]";
-  return oss.str();
-}
-
-std::string json_safe_number(double value)
-{
-  if (std::isnan(value))
-  {
-    return "null"; // JSON-friendly representation for NaN
-  }
-  else if (std::abs(value) < 1e-12)
-  {
-    return ("0");
-  }
-  else
-  {
-    std::ostringstream oss;
-    oss << std::setprecision(std::numeric_limits<double>::max_digits10) << value;
-    return oss.str();
-    //    return std::to_string(value);
-  }
-}
-
-std::string parse_json_block(const std::string &first_line, std::istream &input_stream, const std::string &key)
-{
-  
-  std::string line = first_line;         // Start with the first line
-  std::string block = first_line + "\n"; // Include the first line in the block
-  int brace_depth = 0;
-  
-  if (line.find("null") != std::string::npos && line.find("{") == std::string::npos)
-  {
-    return ""; // Return empty string
-  }
-  
-  // Validate the first line and initialize brace depth
-  if (line.find("{") != std::string::npos)
-  {
-    brace_depth++;
-  }
-  else
-  {
-    throw std::invalid_argument("block should contain opening braces in first line");
-  }
-  
-  while (std::getline(input_stream, line))
-  {
-    line = trim(line); // Trim spaces or newline characters
-    
-    // Update brace depth
-    if (line.find("{") != std::string::npos)
-    {
-      brace_depth++; // Increase brace depth
-    }
-    if (line.find("}") != std::string::npos)
-    {
-      brace_depth--; // Decrease brace depth
-    }
-    
-    block += line + "\n"; // Append the current line
-    
-    // Stop collecting when all braces are balanced
-    if (brace_depth == 0)
-    {
-      break;
-    }
-  }
-  
-  return block;
-}
 
 void node::fromJson(const std::string &json_text)
 {
@@ -1352,7 +1259,7 @@ void node::fromJson(const std::string &json_text)
     
     if (line.find("\"left\":") != std::string::npos)
     {
-      std::string left_block = parse_json_block(line, ss, "\"left\":");
+      std::string left_block = parse_json_block(line, ss);
       
       if (!left_block.empty() && left_block != "null")
       {
@@ -1363,7 +1270,7 @@ void node::fromJson(const std::string &json_text)
     
     if (line.find("\"right\":") != std::string::npos)
     {
-      std::string right_block = parse_json_block(line, ss, "\"right\":");
+      std::string right_block = parse_json_block(line, ss);
       if (!right_block.empty() && right_block != "null")
       {
         right = std::make_unique<node>();
@@ -1442,7 +1349,7 @@ void PILOT::fromJson(const std::string &json_text)
     }
     else if (line.find("\"root\":") != std::string::npos)
     {
-      std::string root_block = parse_json_block(line, ss, "\"root\":");
+      std::string root_block = parse_json_block(line, ss);
       
       if (!root_block.empty() && root_block != "null")
       {
@@ -1467,7 +1374,6 @@ void PILOT::load_from_file(const std::string &filename)
                            std::istreambuf_iterator<char>());
   
   file.close();
-  // do PILOT::fromJson
   fromJson(json_content);
   res = {arma::datum::nan};
 }
@@ -1493,7 +1399,6 @@ std::string PILOT::toJson() const
   oss << "  \"nbNodesPerModelDepth\": " << arma_vec_to_json(nbNodesPerModelDepth) << ",\n";
   oss << "  \"maxNbCats\": " << maxNbCats << ",\n";
   oss << "  \"IDvec\": [],\n";
-  //oss << "  \"IDvec\": " << arma_vec_to_json(IDvec) << ",\n";
   
   oss << "  \"root\": ";
   if (root)

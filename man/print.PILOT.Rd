@@ -4,10 +4,12 @@
 \alias{print.PILOT}
 \title{Print a PILOT model}
 \usage{
-\method{print}{PILOT}(object)
+\method{print}{PILOT}(x, ...)
 }
 \arguments{
-\item{object}{an object of the PILOT class}
+\item{x}{an object of the PILOT class}
+
+\item{...}{other print parameters}
 }
 \description{
 Print a PILOT model
