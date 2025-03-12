@@ -5,4 +5,4 @@ Raymaekers, J., Rousseeuw, P. J., Servotte, T., Verdonck, T., & Yao, R. (2025). 
 
 
 To install, first install the _devtools_ package, then use the command
-_devtools::install_github("https://github.com/STAN-UAntwerp/PILOT/tree/pilot-in-R")_
+devtools::install_github("STAN-UAntwerp/PILOT", ref="pilot-in-R")
