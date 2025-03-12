@@ -4,7 +4,7 @@
 \alias{predict.PILOT}
 \title{Predict with a PILOT model}
 \usage{
-\method{predict}{PILOT}(object, newdata, maxDepth = NULL)
+\method{predict}{PILOT}(object, newdata = NULL, maxDepth = NULL, type = 0)
 }
 \arguments{
 \item{object}{an object of the PILOT class}
@@ -12,11 +12,18 @@
 \item{newdata}{a matrix or data frame with new data}
 
 \item{maxDepth}{predict using all nodes of depth up to maxDepth. If NULL, predict using full tree.}
+
+\item{type}{if type == 0, predict the response. If type == 1, returns the nodes}
 }
 \description{
 Predict with a PILOT model
 }
 \examples{
-x <- rnorm(10)
-
+data <- iris
+y <- as.vector(data[, 1])
+X <- as.data.frame(data[, 2:4])
+pilot.out <- pilot(X, y)
+# generate predictions in-sample
+preds.out <- predict(pilot.out, newdata = X)
+plot(preds.out, y); abline(0, 1)
 }

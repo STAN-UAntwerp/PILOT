@@ -113,7 +113,7 @@ raffle <- function(X, y,
                  data_names = data_names,
                  catInfo = catInfo,
                  modelpointer = fo, 
-                 jsonString = fo$toJson)
+                 jsonString = fo$toJson())
   class(output) <- "RAFFLE" 
   
   return(output)

@@ -1,0 +1,108 @@
+---
+title: "Vignette Title"
+author: "Jakob Raymaekers"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+```{r}
+library(pilot)
+```
+
+# Introduction
+
+In this vignette we illustrate the use of the pilot package for training linear
+model trees using the PILOT algorithm. 
+
+
+# mtcars data
+
+We will illustrate pilot on the mtcars data. First load the data
+
+```{r}
+data("mtcars")
+head(mtcars)
+```
+
+
+In order to use it properly, we need to make sure that the categorical variables are encoded as factors in the data frame.
+This is absolutely crucial, since pilot does not fit linear models to categorical variables.
+
+```{r}
+mtcars$vs <- factor(mtcars$vs, labels = c("V", "S"))
+mtcars$am <- factor(mtcars$am, labels = c("auto", "manual"))
+```
+
+
+Now we will define a response and a set of predictors. For illustrative purposes, we select mpg as the response.
+
+```{r}
+X <- mtcars[, -1]
+y <- mtcars[, 1]
+```
+
+Now we can train the linear model tree using PILOT.
+```{r}
+pilot.out <- pilot(X, y)
+```
+
+
+We can extract the residuals and plot them.
+
+```{r}
+plot(pilot.out$residuals)
+```
+
+
+First print the resulting object. This gives a matrix representation of the linear model tree.
+We can see the first split was a broken linear model on feature 2 (displacement), with split value 121.
+Then the left node was a leaf node. The right node went on to fit one more linear model on the 
+10th feature (Number of carburetors), and then became a leaf node as well.
+
+
+```{r}
+print(pilot.out)
+```
+
+Instead of printing, we can plot the object.
+
+
+```{r, fig.height = 8, fig.width = 12}
+plot(pilot.out)
+```
+
+
+Or we can plot the variable importances in the leaf nodes:
+
+```{r, fig.height = 4, fig.width = 4}
+plot(pilot.out, infoType = 1)
+```
+
+
+
+In order to make new predictions with the model, we can use the predict function.
+It is crucial that the newdata argument is again a data frame with the same variable names
+in the same order and of the same type as the original data. If not, an error will be thrown.
+
+```{r} 
+preds.out <- predict(pilot.out, newdata = X)
+plot(preds.out, y); abline(0,1)
+```
+
+
+
+
+
+

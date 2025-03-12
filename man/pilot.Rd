@@ -7,17 +7,17 @@
 pilot(
   X,
   y,
-  dfs,
-  min_sample_leaf,
-  min_sample_alpha,
-  min_sample_fit,
-  maxDepth,
-  maxModelDepth,
-  rel_tolerance = 0.01
+  dfs = c(1, 2, 5, 5, 7, 5),
+  min_sample_leaf = 5,
+  min_sample_alpha = 5,
+  min_sample_fit = 10,
+  maxDepth = 20,
+  maxModelDepth = 100,
+  rel_tolerance = 1e-04
 )
 }
 \arguments{
-\item{X}{an \eqn{n \times d} set of training data}
+\item{X}{an \eqn{n \times d} set of training data. Should be a data frame.}
 
 \item{y}{a vector of length \eqn{n} with the training response}
 
@@ -53,16 +53,8 @@ Fits a linear model tree using the PILOT algorithm. PILOT builds a tree in a gre
 \examples{
 data <- iris
 y <- as.vector(data[, 1])
-X <- as.matrix(data[, 2:4])
-dfs <- c(1, 2, 5, 5, 7, 5)
-min_sample_leaf <- 5
-min_sample_alpha <- 10
-min_sample_fit <- 5
-maxDepth <- 10
-maxModelDepth <- 100
-rel_tolerance <- 1e-2
-pilot.out <- pilot(X, y, dfs, min_sample_leaf, min_sample_alpha,
-min_sample_fit, maxDepth, maxModelDepth, rel_tolerance)
+X <- as.data.frame(data[, 2:4])
+pilot.out <- pilot(X, y)
 # plot residuals
 plot(pilot.out$residuals)
 # generate predictions in-sample
@@ -70,5 +62,8 @@ preds.out <- predict(pilot.out, newdata = X)
 plot(preds.out, y); abline(0, 1)
 # print model matrix
 round(pilot.out$modelmat, 3)
-
+# plot pilot tree with models printed in leaf nodes
+plot(pilot.out)
+# plot pilot tree with a plot of variable importance in each leaf node
+plot(pilot.out, infoType = 1)
 }

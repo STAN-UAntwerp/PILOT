@@ -15,8 +15,9 @@ License: GPL-3
 Imports: Rcpp (>= 1.0.12)
 Depends: methods
 LinkingTo: Rcpp, RcppArmadillo
-Suggests: testthat (>= 3.0.0)
+Suggests: testthat (>= 3.0.0), knitr, rmarkdown
 Config/testthat/edition: 3
 RoxygenNote: 7.3.1
+VignetteBuilder: knitr
 NeedsCompilation: yes
 Packaged: 2024-12-17 13:10:31 UTC; Jakob Raymaekers

@@ -134,6 +134,7 @@ arma::mat PILOT::print() const
   // 8th column: slope left
   // 9th column: int right
   // 10th column: slope right
+  // 11th column: binary encoding of the levels going left (for categorical nodes only)
   // first the left node row is added, then right node
   // could also add modelID which increments for lin nodes as well.
   
@@ -142,7 +143,7 @@ arma::mat PILOT::print() const
     throw std::logic_error("The tree is not trained, or not loaded properly.");
   }
   
-  arma::mat tr(0, 10);
+  arma::mat tr(0, 11);
   // check if tree has been constructed
   node *nd = root.get();
   printNode(nd, tr);
@@ -163,11 +164,26 @@ void PILOT::printNode(node *nd, arma::mat &tr) const
                       static_cast<double>(nd->intL),
                       static_cast<double>(nd->slopeL),
                       static_cast<double>(nd->intR),
-                      static_cast<double>(nd->slopeR)};
+                      static_cast<double>(nd->slopeR),
+                      arma::datum::nan};
   if (nd->type == 0)
   {
     vec(4) = arma::datum::nan;
   }
+  
+  if (nd->type == 5) // categorical split
+  {
+    vec(10) = 0.0; 
+    // encode levels going left as a single double using binary encoding
+    arma::vec leftlevels = nd->pivot_c;
+    for (arma::uword i = 0; i < leftlevels.n_elem; ++i) 
+    {
+      vec(10) += std::pow(2, leftlevels(i)); 
+    }
+    
+  }
+  
+  
   tr.row(tr.n_rows - 1) = vec;
   if (nd->type == 1)
   { // lin node
@@ -1023,10 +1039,13 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
           {
             best_feature = j;
             best_type = 5; // node type 5 for pconc
+            best_splitVal = arma::datum::nan;
             best_rangeL = xunique(0);
             best_rangeR = xunique(xunique.n_elem - 1);
             best_intL = intL;
+            best_slopeL = arma::datum::nan;
             best_intR = intR;
+            best_slopeR = arma::datum::nan;
             best_bic = bic;
             best_rss = rss;
             best_pivot_c = pivot_c(arma::find(pivot_c < k));
@@ -1055,71 +1074,127 @@ bestSplitOut PILOT::findBestSplit(arma::uword startID,
   return (result);
 }
 
-arma::vec PILOT::predict(const arma::mat &X, arma::uword upToDepth) const
+arma::mat PILOT::predict(const arma::mat &X,
+                         arma::uword upToDepth,
+                         arma::uword type) const
 {
+  // if type is 0, predict the response
+  // if type is 1, return the leaf node id
   
   if (root == nullptr)
   { 
     throw std::logic_error("The tree is not trained, or not loaded properly.");
   }
   
-  arma::vec yhat(X.n_rows, arma::fill::zeros);
+  arma::mat yhat;
   
-  for (arma::uword i = 0; i < X.n_rows; i++)
-  {
-    node *nd = root.get();
-    double yhati = 0.0;
+  if (type == 0) {
+    yhat.set_size(X.n_rows, 1);
     
-    bool restrictedDepth = false;
-    while (nd->type != 0)
+    for (arma::uword i = 0; i < X.n_rows; i++)
     {
-      if (nd->depth > upToDepth) {
-        restrictedDepth = true;
-        break;
-      }
+      node *nd = root.get();
+      double yhati = 0.0;
       
-      double x = std::clamp(X(i, nd->predId), nd->rangeL, nd->rangeR);
-      if (nd->type == 1)
-      { // lin
-        yhati += (nd->intL + (nd->slopeL) * x);
-        nd = nd->left.get();
-      }
-      else if (nd->type == 5)
-      { // pconc
-        bool isLeft = std::binary_search(nd->pivot_c.begin(), nd->pivot_c.end(), x);
-        if (isLeft)
-        {
-          yhati += nd->intL;
-          nd = nd->left.get();
+      bool restrictedDepth = false;
+      while (nd->type != 0)
+      {
+        if (nd->depth > upToDepth) {
+          restrictedDepth = true;
+          break;
         }
-        else
-        {
-          yhati += nd->intR;
-          nd = nd->right.get();
-        }
-      }
-      else
-      { // pcon/blin/plin
-        if (x <= nd->splitVal)
-        {
+        
+        double x = std::clamp(X(i, nd->predId), nd->rangeL, nd->rangeR);
+        if (nd->type == 1)
+        { // lin
           yhati += (nd->intL + (nd->slopeL) * x);
           nd = nd->left.get();
         }
+        else if (nd->type == 5)
+        { // pconc
+          bool isLeft = std::binary_search(nd->pivot_c.begin(), nd->pivot_c.end(), x);
+          if (isLeft)
+          {
+            yhati += nd->intL;
+            nd = nd->left.get();
+          }
+          else
+          {
+            yhati += nd->intR;
+            nd = nd->right.get();
+          }
+        }
         else
-        {
-          yhati += (nd->intR + (nd->slopeR) * x);
-          nd = nd->right.get();
+        { // pcon/blin/plin
+          if (x <= nd->splitVal)
+          {
+            yhati += (nd->intL + (nd->slopeL) * x);
+            nd = nd->left.get();
+          }
+          else
+          {
+            yhati += (nd->intR + (nd->slopeR) * x);
+            nd = nd->right.get();
+          }
+        }
+        yhati = std::clamp(yhati, lowerBound, upperBound);
+      }
+      // if predicted at full depth, we are now at con node:
+      // still need to subtract intercept (only makes a difference for blin)
+      if (!restrictedDepth) { // in case prediction depth is limited
+        yhati += (nd->intL);
+        yhati = std::clamp(yhati, lowerBound, upperBound);
+      }
+      yhat(i, 0) = yhati;
+    }
+  } else if (type == 1) {
+    yhat.set_size(X.n_rows, 3);
+    
+    
+    for (arma::uword i = 0; i < X.n_rows; i++)
+    {
+      node *nd = root.get();
+      
+      while (nd->type != 0)
+      {
+      
+        double x = std::clamp(X(i, nd->predId), nd->rangeL, nd->rangeR);
+        if (nd->type == 1)
+        { // lin
+          nd = nd->left.get();
+        }
+        else if (nd->type == 5)
+        { // pconc
+          bool isLeft = std::binary_search(nd->pivot_c.begin(), nd->pivot_c.end(), x);
+          if (isLeft)
+          {
+            nd = nd->left.get();
+          }
+          else
+          {
+            nd = nd->right.get();
+          }
+        }
+        else
+        { // pcon/blin/plin
+          if (x <= nd->splitVal + 1e-9)
+          {
+            nd = nd->left.get();
+          }
+          else
+          {
+            nd = nd->right.get();
+          }
         }
       }
-      yhati = std::clamp(yhati, lowerBound, upperBound);
+      
+      yhat(i, 0) = static_cast<double>(nd->depth);
+      yhat(i, 1) = static_cast<double>(nd->modelDepth);
+      yhat(i, 2) = static_cast<double>(nd->nodeId);
     }
-    // if predicted at full depth, we are now at con node:
-    // still need to subtract intercept (only makes a difference for blin)
-    if (!restrictedDepth) { // in case prediction depth is limited
-      yhati += (nd->intL);
-      yhati = std::clamp(yhati, lowerBound, upperBound);
-    }
-    yhat(i) = yhati;
+    
+  } else {
+    throw std::logic_error("The argument \'type\' should be 0 or 1.");
   }
   
   return (yhat);

@@ -55,7 +55,7 @@ arma::colvec RAFFLE::predict(const arma::mat& X,
   arma::vec predictions(X.n_rows, arma::fill::zeros);
   
   for (auto& pilot : fleet) { // iterate through trees and add predictions
-    predictions += pilot.predict(X, upToDepth);
+    predictions += pilot.predict(X, upToDepth, 0).col(0);
   }
   predictions /= static_cast<double>(nTrees);
   return(predictions);
@@ -94,7 +94,7 @@ arma::vec RAFFLE::getResiduals(const arma::mat& X,
   arma::vec predictions(X.n_rows, arma::fill::zeros);
   
   for (auto& pilot : fleet) {
-    predictions += pilot.predict(X, upToDepth);
+    predictions += pilot.predict(X, upToDepth, 0).col(0);
   }
   
   arma::vec residuals = y - predictions / static_cast<double>(nTrees);

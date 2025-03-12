@@ -76,8 +76,9 @@ public:
   void train(const arma::mat& X,
              const arma::vec& y,
              const arma::uvec& catIds);
-  arma::colvec predict(const arma::mat& X,
-                       arma::uword upToDepth) const;
+  arma::mat predict(const arma::mat& X,
+                       arma::uword upToDepth,
+                       arma::uword type) const;
   arma::mat print() const;
   arma::vec getResiduals() const;
   
