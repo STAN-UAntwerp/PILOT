@@ -8,6 +8,7 @@
 // Expose (some of) the PILOT class
 RCPP_MODULE(RcppPILOT){
   Rcpp::class_<PILOT>("PILOTcpp")
+  .constructor()
   .constructor<arma::vec,arma::uvec,double,double>()
   .nonconst_method("train", &PILOT::train)
   .const_method("print", &PILOT::print)

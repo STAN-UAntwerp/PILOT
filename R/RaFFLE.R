@@ -14,7 +14,7 @@
 #' @param rel_tolerance a lin model is only fit when the relative RSS is decreased by \code{rel_tolerance}.
 #' @return an object of the \code{RAFFLE} class, i.e. a list with the following components:
 #' \itemize{
-#'   \item \code{modelmat}: A matrix describing the fitted model 
+#'   \item \code{modelcube}: A 3-dimensional array describing the fitted model in raw form. Used for plotting and printing the individual trees.
 #'   \item \code{residuals}: the residuals of the RAFFLE model on the training data
 #'   \item \code{parameters}: A list containing the parameters used for fitting the model
 #'   \item \code{data_names}: A vector with the column names of the training data.  Used for out-of-sample prediction.
@@ -26,15 +26,16 @@
 #' @examples
 #' data <- iris
 #' y <- as.vector(data[, 1])
-#' X <- as.matrix(data[, 2:4])
+#' X <- as.data.frame(data[, 2:4])
 #' raffle.out <- raffle(X, y)
 #' # plot residuals
 #' plot(raffle.out$residuals)
 #' # generate predictions in-sample
 #' preds.out <- predict(raffle.out, newdata = X)
-#' plot(raffle.out, y); abline(0, 1)
+#' # plot the first tree in the ensemble
+#' plot(raffle.out, y, treeNb = 1); abline(0, 1)
 #' # print model matrix of the first tree
-#' round(raffle.out$modelmat[, , 1], 3)
+#'  print(raffle.out, treeNb = 1)
 #' 
 
 
@@ -49,17 +50,17 @@ raffle <- function(X, y,
                    n_features_node = 1,
                    rel_tolerance = 1e-2) {
   
-  if (!is.matrix(X)) stop("X must be a matrix.")
+  if (!is.data.frame(X)) stop("X must be a data frame")
   if (!is.vector(y) && !is.numeric(y)) stop("y must be a numeric vector.")
   if (nrow(X) != length(y)) stop("Number of rows in X must match the length of y.")
   if (anyNA(X)) stop("raffle cannot handle NA values in X (for now).")
   if (anyNA(y)) stop("raffle cannot handle NA values in y (for now).")
   
   data_names <- colnames(X)
-  X <- as.matrix(X)
+  X <- as.data.frame(X)
   y <- as.vector(y)
   
-  catIDs <- apply(X, 2,  function(col) is.factor(col) || is.character(col)) + 0.0
+  catIDs <- sapply(X, function(col) is.factor(col) || is.character(col))+0.0
   
   catInfo <- list(catIDs = catIDs)
   # now convert categorical into integers 0, ..., 1
@@ -93,13 +94,10 @@ raffle <- function(X, y,
             precScale = 1e-10)
   fo$train(X, y, catIDs)
   
-  modelmat <- fo$print()
-  modelmat[, 5, ] <- modelmat[, 5, ] + 1 # C++ to R indexing
-  dimnames(modelmat)[[2]] <- c("depth", "modeldepth", "nodeId", "node type", "feature index",
-                               "split value", "left intercept", "left slope", "right intercept", 
-                               "right slope")
+  modelcube <- fo$print()
+  
   # return output as a RAFFLE class
-  output <- list(modelmat = modelmat,
+  output <- list(modelcube = modelcube,
                  residuals = fo$getResiduals(X, y, maxDepth),
                  parameters = list(nTrees = nTrees, 
                                    alpha = alpha, 
@@ -125,21 +123,27 @@ raffle <- function(X, y,
 
 #' Print a RAFFLE model
 #'
-#' Print a RAFFLE model
+#' Print a given tree in the RAFFLE model
 #' @param x an object of the RAFFLE class
+#' @param treeNb the tree that is printed. defaults to the first tree
 #' @param ... other print parameters 
 #' @examples
 #' x <- rnorm(10)
 #' 
 
-print.RAFFLE <- function(x, ...) {
+print.RAFFLE <- function(x, treeNb = 1, ...) {
   if (!inherits(x, "RAFFLE")) {
     stop("Object is not of class 'RAFFLE'")
   }
-  if (!is.array(x$modelmat)) {
+  if (!is.array(x$modelcube)) {
     stop("RAFFLE object is corrupted: does not have a model array")
   }
-  print(x$modelmat)
+  if (!(treeNb %in% 1:dim(x$modelcube)[3])) {
+    stop(paste0("treeNb should be an integer between 1 and ", dim(x$modelcube)[3], " to select which tree to print."))
+  }
+  
+  individualTree <- extractTree(x, treeNb)
+  print(individualTree)
 }
 
 
@@ -147,17 +151,24 @@ print.RAFFLE <- function(x, ...) {
 #'
 #' Plot a RAFFLE model
 #' @param x an object of the RAFFLE class
+#' @param treeNb the tree that is printed. defaults to the first tree
 #' @param ... other graphical parameters 
 #' @examples
 #' x <- rnorm(10)
 #' 
 
-plot.RAFFLE <- function(x, ...) {
+plot.RAFFLE <- function(x, treeNb = 1, ...) {
   if (!inherits(x, "RAFFLE")) {
     stop("Object is not of class 'RAFFLE'")
   }
+  if (!(treeNb %in% 1:dim(x$modelcube)[3])) {
+    stop(paste0("treeNb should be an integer between 1 and ",
+                dim(x$modelcube)[3], " to select which tree to print."))
+  }
   
-  plot(x$residuals, xlab = "index", ylab = "residuals", ...)
+  # individualTree <- extractTree(x, treeNb)
+  # plot(individualTree, infoType = 0, ...)
+  plot(x$residuals)
 }
 
 
@@ -172,54 +183,88 @@ plot.RAFFLE <- function(x, ...) {
 #' x <- rnorm(10)
 #' 
 
-predict.RAFFLE <- function(x, newdata, maxDepth = NULL) {
+predict.RAFFLE <- function(object, newdata, maxDepth = NULL) {
   
-  if (!inherits(x, "RAFFLE")) {
+  if (!inherits(object, "RAFFLE")) {
     stop("Object is not of class 'RAFFLE'")
   }
   # first check if the object was loaded from a file. If so, reconstruct it:
-  if (capture.output(x$modelpointer[[".module"]])  == "<pointer: (nil)>") {
+  if (capture.output(object$modelpointer[[".module"]])  == "<pointer: (nil)>") {
     fo <- new(RAFFLEcpp)
-    fo$fromJSON(x$jsonString) # read the PILOt object from the Json string
-    x$modelpointer = fo
+    fo$fromJSON(object$jsonString) # read the PILOt object from the Json string
+    object$modelpointer = fo
   } else {
-    fo <- x$modelpointer
+    fo <- object$modelpointer
   }
   
   # now check new input newdata, mainly the categorical features
-  newdata <- as.matrix(newdata)
+  if (is.null(newdata)) {newdata <- object$df}
   
   if (anyNA(newdata)) stop("RAFFLE cannot handle NA values in new data (for now).")
   
-  if (!isTRUE(all.equal(colnames(newdata), x$data_names))){
+  if (!isTRUE(all.equal(colnames(newdata), object$data_names))){
     stop("Column names of new data do not match the training data.")
   }
   
-  catIDs <- apply(X, 2,  function(col) is.factor(col) || is.character(col)) + 0.0
-  if (!isTRUE(all.equal(catIDs, x$catInfo$catIDs))) {
+  catIDs <-  sapply(newdata, function(col) is.factor(col) || is.character(col))+0.0
+  if (!isTRUE(all.equal(catIDs, object$catInfo$catIDs))) {
     stop("Categorical/factor variables of new data do not match those in the training data.")
   }
   
   if (any(catIDs == 1)) {
-    catInds <- x$catInfo$catInds 
+    catInds <- object$catInfo$catInds 
     for (j in 1:length(catInds)) {
       catID        <- catInds[j]
       factorlevels <- levels(as.factor(newdata[, catID]))
-      if (length(setdiff(factorlevels, x$catInfo$factorlevels[[j]])) > 0) {
+      if (length(setdiff(factorlevels, object$catInfo$factorlevels[[j]])) > 0) {
         stop(paste0("Variable ", catID, " has categories not present in the training data."))
       }
-      xf <- factor(newdata[, catID], levels = x$catInfo$factorlevels[[j]])
-      X[, catID]   <- as.integer(xf) - 1
+      xf <- factor(newdata[, catID], levels = object$catInfo$factorlevels[[j]])
+      newdata[, catID]   <- as.integer(xf) - 1
     }
   }
   
   if (is.null(maxDepth)) {
-    maxDepth = x$parameters$maxDepth
+    maxDepth = object$parameters$maxDepth
   }
   
-  preds <- fo$predict(newdata, maxDepth)
+  preds <- fo$predict(newdata, maxDepth, 0, 0)
   return(preds)
 }
 
 
+extractTree <- function(x, treeNb) {
+  # extract a given tree from a raffle forest, and
+  # put it in PILOT s3 format
+  
+  
+  if (!inherits(x, "RAFFLE")) {
+    stop("Object is not of class 'RAFFLE'")
+  }
+  if (!(treeNb %in% 1:dim(x$modelcube)[3])) {
+    stop(paste0("treeNb should be an integer between 1 and ",
+                dim(x$modelcube)[3], " to select which tree to print."))
+  }
+  
+  
+  prepare_modelmat.out <- prepare_modelmat(x$modelcube[, , treeNb])
+  
+  # return output as a PILOT class
+  individualpilot <- c(output, list(modelmat = prepare_modelmat.out$modelmat,
+                                    leafnodemodels = prepare_modelmat.out$leafnodemodels,
+                                    nodeIdMap = prepare_modelmat.out$nodeIdMap,
+                                    residuals = x$residuals,
+                                    parameters = x$parameters,
+                                    data_names = x$data_names,
+                                    catInfo = x$catInfo,
+                                    modelpointer = x$modelpointer, 
+                                    jsonString = x$jsonString))
+  class(individualpilot) <- "PILOT" 
+  
+  # this doesn't quite work, since the model pointer is to the whole forest
+  # best thing to do here is probably constuct a new pilotCPP object,
+  #  new(PILOTcpp), and reconstruct it from the jsonstring
+  # corresponding to the nth tree.
+  return(individualpilot)
+}
 

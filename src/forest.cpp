@@ -58,6 +58,7 @@ arma::colvec RAFFLE::predict(const arma::mat& X,
     predictions += pilot.predict(X, upToDepth, 0).col(0);
   }
   predictions /= static_cast<double>(nTrees);
+  
   return(predictions);
 }
 
@@ -66,14 +67,16 @@ arma::cube RAFFLE::print() const {
     throw std::logic_error("Fleet is empty, cannot check training status.");
   }
   
-  arma::cube output(1, 10 , nTrees);
+  arma::cube output(1, 11, nTrees);
   output.fill(arma::datum::nan);
   
   for (arma::uword i = 0; i < nTrees; i++) {
     arma::mat newpilot = fleet[i].print();
     
+    arma::uword nOldRows = output.n_rows;
     if (newpilot.n_rows > output.n_rows) {
-      output.resize(newpilot.n_rows, 10, nTrees);
+      output.resize(newpilot.n_rows, 11, nTrees);
+      output.rows(nOldRows, newpilot.n_rows - 1).fill(arma::datum::nan);
     }
     output.slice(i).head_rows(newpilot.n_rows) = newpilot;
   }
@@ -106,20 +109,25 @@ arma::vec RAFFLE::getResiduals(const arma::mat& X,
 
 
 
-std::string RAFFLE::toJson() const
+std::string RAFFLE::toJson(arma::uword treeNb) const
 {
-  
+  // if treeNb == 0 (default), the whole forest is printed to Json,
+  // otherwise a single tree is printed
   std::ostringstream oss;
-  oss << "{\n";
-  oss << "  \"nTrees\": " << nTrees << ",\n";
-  oss << "  \"pilots\": [\n";
-  
-  for (size_t i = 0; i < fleet.size(); ++i) {
-    oss << fleet[i].toJson();
-    if (i < fleet.size() - 1) oss << ",\n";
+  if (treeNb == 0) { // the whole forest
+    oss << "{\n";
+    oss << "  \"nTrees\": " << nTrees << ",\n";
+    oss << "  \"pilots\": [\n";
+    
+    for (size_t i = 0; i < fleet.size(); ++i) {
+      oss << fleet[i].toJson();
+      if (i < fleet.size() - 1) oss << ",\n";
+    }
+    oss << "] \n}";
+    
+  } else { // a single tree
+    oss << fleet[treeNb - 1].toJson();
   }
-  oss << "] \n}";
-  
   return (oss.str());
 }
 

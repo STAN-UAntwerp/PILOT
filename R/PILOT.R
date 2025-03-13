@@ -49,126 +49,6 @@ pilot <- function(X, y,
                   rel_tolerance = 1e-4) {
   
   
-  prepare_modelmat <- function(modelmat) {
-    # Step 1: for each depth, add unique nodeId for each node which takes into acount skipped con nodes
-    modelmat <- as.data.frame(modelmat)
-    
-    modelmat[, 5] <- modelmat[, 5] + 1 # C++ to R indexing
-    colnames(modelmat) <- c("depth", "modeldepth", "nodeId", "node_type", "feature_index",
-                            "split_value", "left_intercept", "left_slope", "right_intercept", 
-                            "right_slope", "left_levels")
-    
-    
-    modelmat$newNodeId <- rep(NA, nrow(modelmat))
-    
-    node_id_map <- integer(max(modelmat$depth) + 1)
-    # Process each row sequentially
-    for (i in seq_len(nrow(modelmat))) {
-      if (modelmat$node_type[i] == 1) {next}
-      depth <- modelmat$depth[i]
-      
-      # Assign the next sequential nodeId for the current depth
-      modelmat$newNodeId[i] <- node_id_map[depth + 1]
-      
-      # Increment the counter for this depth
-      node_id_map[depth + 1] <- node_id_map[depth + 1] + 1
-      # check if leaf node
-      if (modelmat$node_type[i] == 0) { # increment all child node counters
-        if (depth < max(modelmat$depth)) {
-          skippedchilds <- 1 + (1 + depth):max(modelmat$depth)
-          node_id_map[skippedchilds] <- node_id_map[skippedchilds]  + 2^(seq_along(skippedchilds))
-        }
-      }
-    }
-    for (i in rev(seq_len(nrow(modelmat)))){ ## all lin models right before this node get the same ID
-      if (is.na(modelmat$newNodeId[i])) {
-        modelmat$newNodeId[i] = modelmat$newNodeId[i+1]
-      }
-    }
-    
-    # Step 2: 
-    # add unique id by appending depth  + newNodeId
-    # note that lin models generate duplicate IDs
-    modelmat$unique_id <- paste(modelmat$depth, modelmat$newNodeId, sep = "-")
-    
-    # Step 3:
-    # for each non-root node, add  the unique ID of the parents: 
-    
-    modelmat$parentId <- rep(NA, nrow(modelmat))
-    
-    for (i in 1:nrow(modelmat)) {
-      if (modelmat$node_type[i] %in% 2:6) {
-        childrows <- which(modelmat$unique_id %in% c(paste0(modelmat$depth[i] + 1, "-", modelmat$newNodeId[i] * 2 ),
-                                                     paste0(modelmat$depth[i] + 1, "-", modelmat$newNodeId[i] * 2 + 1)))
-        modelmat$parentId[childrows] <- modelmat$unique_id[i]
-      }
-    }
-    
-    # Step 4:
-    # create a list of leafnodemodels which contains the coefficients of the linear model
-    # active in that leaf node. 
-    
-    leafnodemodels <- list()
-    for (i in 1:nrow(modelmat)) {
-      if (modelmat$node_type[i] == 0) { # leaf node
-        coefvec <- rep(NA, ncol(X) + 1 ) # first index is intercept
-        parentId <- modelmat$parentId[i]
-        coefvec[1] <- modelmat$left_intercept[i]
-        idx <- i
-        
-        localLinModels <- which(modelmat$unique_id == modelmat$unique_id[i])
-        for (j in localLinModels) {
-          if (modelmat$node_type[j] == 1) { # lin fit
-            coefvec[modelmat$feature_index[j] + 1] <- modelmat$left_slope[j]
-            coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
-          } else {
-            coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
-          }
-        }
-        
-        
-        while(!is.na(parentId)) {
-          parents <- which(modelmat$unique_id %in% parentId)
-          for (j in parents) {
-            if (modelmat$node_type[j] == 1) { # lin fit
-              coefvec[modelmat$feature_index[j] + 1] <- modelmat$left_slope[j]
-              coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
-            } else {
-              # first check whether this is left or right node
-              if (idx == max(which(modelmat$parentId == parentId))) {
-                leftchild = FALSE
-              } else {
-                leftchild = TRUE
-              }
-              if (leftchild) {
-                coefvec[modelmat$feature_index[j] + 1] <- modelmat$left_slope[j]
-                coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
-              } else {
-                coefvec[modelmat$feature_index[j] + 1] <- modelmat$right_slope[j]
-                coefvec[1] <- coefvec[1] + modelmat$right_intercept[j]
-              }
-            }
-          }
-          idx <- tail(parents, 1)
-          parentId <- modelmat$parentId[idx]
-        }
-        leafnodemodels[[modelmat$unique_id[i]]] <- coefvec
-      }
-    }
-    
-    
-    nodeIdMap <- cbind(modelmat$unique_id, paste(modelmat$depth, modelmat$modeldepth, modelmat$nodeId, sep = "-"))
-    colnames(nodeIdMap) <- c("newId", "oldId")
-    
-    modelmat  <- modelmat[, c(1, 2, 12, 4:11, 13, 14)]
-    colnames(modelmat)[3] <- "nodeId"
-    return(list(modelmat = modelmat,
-                leafnodemodels = leafnodemodels,
-                nodeIdMap = nodeIdMap)) 
-  }
-  
-  
-  
   if (!is.data.frame(X)) stop("X must be a data frame")
   if (!is.vector(y) && !is.numeric(y)) stop("y must be a numeric vector.")
   if (nrow(X) != length(y)) stop("Number of rows in X must match the length of y.")
@@ -177,7 +57,8 @@ pilot <- function(X, y,
   
   X <- as.data.frame(X) # for converting tibbles
   
-  output <- list(df = X)
+  output <- list(df = X,
+                 response = y)
   
   data_names <- colnames(X)
   
@@ -293,9 +174,6 @@ print.PILOT <- function(x, ...) {
 #' plot(pilot.out, infoType = 1)
 
 plot.PILOT <- function(x, infoType = 0, ...) {
-  
-  
-  
   
   build_party <- function(modelmat,
                           leafnodemodels,
@@ -490,7 +368,7 @@ plot.PILOT <- function(x, infoType = 0, ...) {
   build_party.out <- build_party(x$modelmat, x$leafnodemodels, x$df, x$catInfo, infoType = infoType)
   
   plotVarImportance = (infoType == 1) 
-  
+  print(plotVarImportance)
   gg <- plot_party(build_party.out,
                    autoLayout = TRUE,
                    plotVarImportance = plotVarImportance)
@@ -526,7 +404,7 @@ predict.PILOT <- function(object, newdata = NULL, maxDepth = NULL, type = 0) {
   # first check if the object was loaded from a file. If so, reconstruct it:
   if (capture.output(object$modelpointer[[".module"]])  == "<pointer: (nil)>") {
     tr <- new(PILOTcpp)
-    tr$fromJSON(object$jsonString) # read the PILOt object from the Json string
+    tr$fromJson(object$jsonString) # read the PILOt object from the Json string
     object$modelpointer = tr
   } else {
     tr <- object$modelpointer
@@ -541,27 +419,27 @@ predict.PILOT <- function(object, newdata = NULL, maxDepth = NULL, type = 0) {
     stop("Column names of new data do not match the training data.")
   }
   
-  catIDs <-  sapply(newdata, function(col) is.factor(col) || is.character(col))+0.0
-  if (!isTRUE(all.equal(catIDs, object$catInfo$catIDs))) {
-    stop("Categorical/factor variables of new data do not match those in the training data.")
-  }
-  
-  if (any(catIDs == 1)) {
-    catInds <- object$catInfo$catInds 
-    for (j in 1:length(catInds)) {
-      catID        <- catInds[j]
-      factorlevels <- levels(as.factor(newdata[, catID]))
-      if (length(setdiff(factorlevels, object$catInfo$factorlevels[[j]])) > 0) {
-        stop(paste0("Variable ", catID, " has categories not present in the training data."))
-      }
-      xf <- factor(newdata[, catID], levels = object$catInfo$factorlevels[[j]])
-      newdata[, catID]   <- as.integer(xf) - 1
+    catIDs <-  sapply(newdata, function(col) is.factor(col) || is.character(col))+0.0
+    if (!isTRUE(all.equal(catIDs, object$catInfo$catIDs))) {
+      stop("Categorical/factor variables of new data do not match those in the training data.")
     }
-  }
-  
-  if (is.null(maxDepth)) {
-    maxDepth = object$parameters$maxDepth
-  }
+    
+    if (any(catIDs == 1)) {
+      catInds <- object$catInfo$catInds 
+      for (j in 1:length(catInds)) {
+        catID        <- catInds[j]
+        factorlevels <- levels(as.factor(newdata[, catID]))
+        if (length(setdiff(factorlevels, object$catInfo$factorlevels[[j]])) > 0) {
+          stop(paste0("Variable ", catID, " has categories not present in the training data."))
+        }
+        xf <- factor(newdata[, catID], levels = object$catInfo$factorlevels[[j]])
+        newdata[, catID]   <- as.integer(xf) - 1
+      }
+    }
+    
+    if (is.null(maxDepth)) {
+      maxDepth = object$parameters$maxDepth
+    }
   
   newdata <- as.matrix(newdata)
   preds   <- tr$predict(newdata, maxDepth, type)
@@ -576,5 +454,133 @@ predict.PILOT <- function(object, newdata = NULL, maxDepth = NULL, type = 0) {
   return(preds)
 }
 
+
+
+
+prepare_modelmat <- function(modelmat) {
+  # Step 1: for each depth, add unique nodeId for each node which takes into acount skipped con nodes
+  modelmat <- as.data.frame(modelmat)
+  
+  # throw out NA rows, which can happen when the trees come from a raffle object (which pads unused rows with NAs)
+  naRows <- which(is.na(modelmat[, 1]))
+  if (length(naRows) > 0) {
+    modelmat <- modelmat[-naRows, ]
+  }
+  
+  modelmat[, 5] <- modelmat[, 5] + 1 # C++ to R indexing
+  colnames(modelmat) <- c("depth", "modeldepth", "nodeId", "node_type", "feature_index",
+                          "split_value", "left_intercept", "left_slope", "right_intercept", 
+                          "right_slope", "left_levels")
+  
+  
+  modelmat$newNodeId <- rep(NA, nrow(modelmat))
+  
+  node_id_map <- integer(max(modelmat$depth) + 1)
+  # Process each row sequentially
+  for (i in seq_len(nrow(modelmat))) {
+    if (modelmat$node_type[i] == 1) {next}
+    depth <- modelmat$depth[i]
+    
+    # Assign the next sequential nodeId for the current depth
+    modelmat$newNodeId[i] <- node_id_map[depth + 1]
+    
+    # Increment the counter for this depth
+    node_id_map[depth + 1] <- node_id_map[depth + 1] + 1
+    # check if leaf node
+    if (modelmat$node_type[i] == 0) { # increment all child node counters
+      if (depth < max(modelmat$depth)) {
+        skippedchilds <- 1 + (1 + depth):max(modelmat$depth)
+        node_id_map[skippedchilds] <- node_id_map[skippedchilds]  + 2^(seq_along(skippedchilds))
+      }
+    }
+  }
+  for (i in rev(seq_len(nrow(modelmat)))){ ## all lin models right before this node get the same ID
+    if (is.na(modelmat$newNodeId[i])) {
+      modelmat$newNodeId[i] = modelmat$newNodeId[i+1]
+    }
+  }
+  
+  # Step 2: 
+  # add unique id by appending depth  + newNodeId
+  # note that lin models generate duplicate IDs
+  modelmat$unique_id <- paste(modelmat$depth, modelmat$newNodeId, sep = "-")
+  
+  # Step 3:
+  # for each non-root node, add  the unique ID of the parents: 
+  
+  modelmat$parentId <- rep(NA, nrow(modelmat))
+  
+  for (i in 1:nrow(modelmat)) {
+    if (modelmat$node_type[i] %in% 2:6) {
+      childrows <- which(modelmat$unique_id %in% c(paste0(modelmat$depth[i] + 1, "-", modelmat$newNodeId[i] * 2 ),
+                                                   paste0(modelmat$depth[i] + 1, "-", modelmat$newNodeId[i] * 2 + 1)))
+      modelmat$parentId[childrows] <- modelmat$unique_id[i]
+    }
+  }
+  
+  # Step 4:
+  # create a list of leafnodemodels which contains the coefficients of the linear model
+  # active in that leaf node. 
+  
+  leafnodemodels <- list()
+  for (i in 1:nrow(modelmat)) {
+    if (modelmat$node_type[i] == 0) { # leaf node
+      coefvec <- rep(0, ncol(X) + 1 ) # first index is intercept
+      parentId <- modelmat$parentId[i]
+      coefvec[1] <- modelmat$left_intercept[i]
+      idx <- i
+      
+      localLinModels <- which(modelmat$unique_id == modelmat$unique_id[i])
+      for (j in localLinModels) {
+        if (modelmat$node_type[j] == 1) { # lin fit
+          coefvec[modelmat$feature_index[j] + 1] <- coefvec[modelmat$feature_index[j] + 1] + modelmat$left_slope[j]
+          coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
+        } 
+        # else {# intercept of final con node already added
+        #   coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
+        # }
+      }
+      
+      
+      while(!is.na(parentId)) {
+        parents <- which(modelmat$unique_id %in% parentId)
+        for (j in parents) {
+          if (modelmat$node_type[j] == 1) { # lin fit
+            coefvec[modelmat$feature_index[j] + 1] <- coefvec[modelmat$feature_index[j] + 1] + modelmat$left_slope[j]
+            coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
+          } else {
+            # first check whether this is left or right node
+            if (idx == max(which(modelmat$parentId == parentId))) {
+              leftchild = FALSE
+            } else {
+              leftchild = TRUE
+            }
+            if (leftchild) {
+              coefvec[modelmat$feature_index[j] + 1] <- coefvec[modelmat$feature_index[j] + 1] + modelmat$left_slope[j]
+              coefvec[1] <- coefvec[1] + modelmat$left_intercept[j]
+            } else {
+              coefvec[modelmat$feature_index[j] + 1] <- coefvec[modelmat$feature_index[j] + 1] + modelmat$right_slope[j]
+              coefvec[1] <- coefvec[1] + modelmat$right_intercept[j]
+            }
+          }
+        }
+        idx <- tail(parents, 1)
+        parentId <- modelmat$parentId[idx]
+      }
+      coefvec[which(coefvec ==0)] <- NA
+      leafnodemodels[[modelmat$unique_id[i]]] <- coefvec
+    }
+  }
+  
+  
+  nodeIdMap <- cbind(modelmat$unique_id, paste(modelmat$depth, modelmat$modeldepth, modelmat$nodeId, sep = "-"))
+  colnames(nodeIdMap) <- c("newId", "oldId")
+  
+  modelmat  <- modelmat[, c(1, 2, 12, 4:11, 13, 14)]
+  colnames(modelmat)[3] <- "nodeId"
+  return(list(modelmat = modelmat,
+              leafnodemodels = leafnodemodels,
+              nodeIdMap = nodeIdMap)) 
+}
 
 

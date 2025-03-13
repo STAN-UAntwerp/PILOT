@@ -8,6 +8,7 @@
 // Expose (some of) the PILOT class
 RCPP_MODULE(RcppRAFFLE){
   Rcpp::class_<RAFFLE>("RAFFLEcpp")
+  .constructor()
   .constructor<arma::uword,arma::vec,arma::uvec,double,double>()
   .nonconst_method("train", &RAFFLE::train)
   .const_method("print", &RAFFLE::print)

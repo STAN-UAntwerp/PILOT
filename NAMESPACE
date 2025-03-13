@@ -9,13 +9,13 @@ importFrom("utils", "capture.output")
 
 
 export(pilot)
-# export(PILOTcpp)
+export(PILOTcpp)
 S3method(predict, PILOT)
 S3method(plot, PILOT)
 S3method(print, PILOT)
 
 export(raffle)
-# export(RAFFLEcpp)
+export(RAFFLEcpp)
 S3method(predict, RAFFLE)
 S3method(plot, RAFFLE)
 S3method(print, RAFFLE)
