@@ -58,6 +58,8 @@ raffle <- function(X, y,
   
   data_names <- colnames(X)
   X <- as.data.frame(X)
+  output <- list(df = X,
+                 response = y)
   y <- as.vector(y)
   
   catIDs <- sapply(X, function(col) is.factor(col) || is.character(col))+0.0
@@ -92,26 +94,27 @@ raffle <- function(X, y,
             modelParams = modelParams,
             rel_tolerance = rel_tolerance,
             precScale = 1e-10)
+  X <- as.matrix(X)
   fo$train(X, y, catIDs)
   
   modelcube <- fo$print()
-  
   # return output as a RAFFLE class
-  output <- list(modelcube = modelcube,
-                 residuals = fo$getResiduals(X, y, maxDepth),
-                 parameters = list(nTrees = nTrees, 
-                                   alpha = alpha, 
-                                   min_sample_leaf = min_sample_leaf, 
-                                   min_sample_alpha = min_sample_alpha,
-                                   min_sample_fit = min_sample_fit,
-                                   maxDepth = maxDepth,
-                                   maxModelDepth = maxModelDepth,
-                                   n_features_node = n_features_node,
-                                   rel_tolerance = rel_tolerance),
-                 data_names = data_names,
-                 catInfo = catInfo,
-                 modelpointer = fo, 
-                 jsonString = fo$toJson())
+  output <- c(output, 
+              list(modelcube = modelcube,
+                   residuals = fo$getResiduals(X, y, maxDepth),
+                   parameters = list(nTrees = nTrees, 
+                                     alpha = alpha, 
+                                     min_sample_leaf = min_sample_leaf, 
+                                     min_sample_alpha = min_sample_alpha,
+                                     min_sample_fit = min_sample_fit,
+                                     maxDepth = maxDepth,
+                                     maxModelDepth = maxModelDepth,
+                                     n_features_node = n_features_node,
+                                     rel_tolerance = rel_tolerance),
+                   data_names = data_names,
+                   catInfo = catInfo,
+                   modelpointer = fo, 
+                   jsonString = fo$toJson(0)))
   class(output) <- "RAFFLE" 
   
   return(output)
@@ -152,12 +155,13 @@ print.RAFFLE <- function(x, treeNb = 1, ...) {
 #' Plot a RAFFLE model
 #' @param x an object of the RAFFLE class
 #' @param treeNb the tree that is printed. defaults to the first tree
+#' @param infoType If 0, prints model coefficients in leaf nodes. If 1, prints variable importance. Defaults to 0
 #' @param ... other graphical parameters 
 #' @examples
 #' x <- rnorm(10)
 #' 
 
-plot.RAFFLE <- function(x, treeNb = 1, ...) {
+plot.RAFFLE <- function(x, treeNb = 1, infoType = 0, ...) {
   if (!inherits(x, "RAFFLE")) {
     stop("Object is not of class 'RAFFLE'")
   }
@@ -166,9 +170,8 @@ plot.RAFFLE <- function(x, treeNb = 1, ...) {
                 dim(x$modelcube)[3], " to select which tree to print."))
   }
   
-  # individualTree <- extractTree(x, treeNb)
-  # plot(individualTree, infoType = 0, ...)
-  plot(x$residuals)
+  individualTree <- extractTree(x, treeNb)
+  plot(individualTree, infoType = infoType, ...)
 }
 
 
@@ -191,7 +194,7 @@ predict.RAFFLE <- function(object, newdata, maxDepth = NULL) {
   # first check if the object was loaded from a file. If so, reconstruct it:
   if (capture.output(object$modelpointer[[".module"]])  == "<pointer: (nil)>") {
     fo <- new(RAFFLEcpp)
-    fo$fromJSON(object$jsonString) # read the PILOt object from the Json string
+    fo$fromJson(object$jsonString) # read the PILOt object from the Json string
     object$modelpointer = fo
   } else {
     fo <- object$modelpointer
@@ -228,7 +231,8 @@ predict.RAFFLE <- function(object, newdata, maxDepth = NULL) {
     maxDepth = object$parameters$maxDepth
   }
   
-  preds <- fo$predict(newdata, maxDepth, 0, 0)
+  newdata <- as.matrix(newdata)
+  preds <- fo$predict(newdata, maxDepth)
   return(preds)
 }
 
@@ -246,25 +250,35 @@ extractTree <- function(x, treeNb) {
                 dim(x$modelcube)[3], " to select which tree to print."))
   }
   
+  Jsontree <- x$modelpointer$toJson(treeNb) # extract json string for tree number treeNb
+  
+  # now construct a new pointer to the extracted tree.
+  tr <- new(PILOTcpp)
+  tr$fromJson(Jsontree) # read the PILOt object from the Json string
   
   prepare_modelmat.out <- prepare_modelmat(x$modelcube[, , treeNb])
   
   # return output as a PILOT class
-  individualpilot <- c(output, list(modelmat = prepare_modelmat.out$modelmat,
-                                    leafnodemodels = prepare_modelmat.out$leafnodemodels,
-                                    nodeIdMap = prepare_modelmat.out$nodeIdMap,
-                                    residuals = x$residuals,
-                                    parameters = x$parameters,
-                                    data_names = x$data_names,
-                                    catInfo = x$catInfo,
-                                    modelpointer = x$modelpointer, 
-                                    jsonString = x$jsonString))
+  individualpilot <- list(df = x$df,
+                          response = x$response,
+                          modelmat = prepare_modelmat.out$modelmat,
+                          leafnodemodels = prepare_modelmat.out$leafnodemodels,
+                          nodeIdMap = prepare_modelmat.out$nodeIdMap,
+                          residuals = NULL,
+                          parameters = x$parameters[c("dfs", "min_sample_leaf", "min_sample_alpha", "min_sample_fit", 
+                                                      "maxDepth", "maxModelDepth", "rel_tolerance")],
+                          data_names = x$data_names,
+                          catInfo = x$catInfo,
+                          modelpointer = tr, 
+                          jsonString = Jsontree)
+  
   class(individualpilot) <- "PILOT" 
   
-  # this doesn't quite work, since the model pointer is to the whole forest
-  # best thing to do here is probably constuct a new pilotCPP object,
-  #  new(PILOTcpp), and reconstruct it from the jsonstring
-  # corresponding to the nth tree.
+  
+  predictions <- predict(individualpilot, newdata = x$df, NULL, 0)
+  residuals <- x$response - predictions
+  individualpilot$residuals <- residuals
+  
   return(individualpilot)
 }
 
