@@ -4,17 +4,23 @@
 \alias{print.RAFFLE}
 \title{Print a RAFFLE model}
 \usage{
-\method{print}{RAFFLE}(x, ...)
+\method{print}{RAFFLE}(x, treeNb = 1, ...)
 }
 \arguments{
 \item{x}{an object of the RAFFLE class}
 
+\item{treeNb}{the tree that is printed. defaults to the first tree}
+
 \item{...}{other print parameters}
 }
 \description{
-Print a RAFFLE model
+Print a given tree in the RAFFLE model
 }
 \examples{
-x <- rnorm(10)
-
+data <- iris
+y <- as.vector(data[, 1])
+X <- as.data.frame(data[, 2:4])
+raffle.out <- raffle(X, y, maxDepth = 3)
+ print(raffle.out, treeNb = 1)
+ print(raffle.out, treeNb = 2)
 }

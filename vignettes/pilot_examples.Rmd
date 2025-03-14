@@ -1,10 +1,10 @@
 ---
-title: "Vignette Title"
+title: "pilot_examples"
 author: "Jakob Raymaekers"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteIndexEntry{pilot_examples}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -84,7 +84,9 @@ plot(pilot.out)
 ```
 
 
-Or we can plot the variable importances in the leaf nodes:
+Or we can plot the variable importances in the leaf nodes. The corresponding
+bars are colored in red if the coefficient is negative, and blue if it is a positive
+coefficient:
 
 ```{r, fig.height = 4, fig.width = 4}
 plot(pilot.out, infoType = 1)

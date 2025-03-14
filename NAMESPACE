@@ -5,8 +5,8 @@ import(methods)
 import(ggplot2)
 import(ggparty)
 import(partykit)
-importFrom("utils", "capture.output")
-
+importFrom("utils", "capture.output", "head", "tail")
+importFrom("stats", "sd", "setNames")
 
 export(pilot)
 export(PILOTcpp)

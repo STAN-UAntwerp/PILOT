@@ -44,7 +44,7 @@ raffle(
 \value{
 an object of the \code{RAFFLE} class, i.e. a list with the following components:
 \itemize{
-  \item \code{modelmat}: A matrix describing the fitted model 
+  \item \code{modelcube}: A 3-dimensional array describing the fitted model in raw form. Used for plotting and printing the individual trees.
   \item \code{residuals}: the residuals of the RAFFLE model on the training data
   \item \code{parameters}: A list containing the parameters used for fitting the model
   \item \code{data_names}: A vector with the column names of the training data.  Used for out-of-sample prediction.
@@ -62,14 +62,16 @@ Runs RaFFLE to fit a forest of piecewise linear trees.
 \examples{
 data <- iris
 y <- as.vector(data[, 1])
-X <- as.matrix(data[, 2:4])
-raffle.out <- raffle(X, y)
+X <- as.data.frame(data[, 2:4])
+raffle.out <- raffle(X, y, maxDepth = 3)
 # plot residuals
 plot(raffle.out$residuals)
 # generate predictions in-sample
 preds.out <- predict(raffle.out, newdata = X)
-plot(raffle.out, y); abline(0, 1)
+plot(preds.out, y)
+# plot the first tree in the ensemble
+plot(raffle.out, treeNb = 1)
 # print model matrix of the first tree
-round(raffle.out$modelmat[, , 1], 3)
+ print(raffle.out, treeNb = 1)
 
 }

@@ -29,18 +29,8 @@ the original saved model.
 Maintainer: \packageMaintainer{pilot}
 }
 \references{
-%%  ~~ Literature or other references for background information ~~
+J. Raymaekers, P.J. Rousseeuw, T. Verdonck and R. Yao (2024). Fast linear model trees by PILOT. \emph{Machine Learning} <doi:10.1007/s10994-024-06590-3> (open access)
+
+J. Raymaekers, P.J. Rousseeuw, T. Servotte, T. Verdonck and R. Yao (2025). A Powerful Random Forest Featuring Linear Extensions (RaFFLE). \emph{Arxiv} <doi:10.48550/arXiv.2502.10185> (open access)
 }
 \keyword{package}
-
-%% Uncomment below to imitate parts of library(help = rpilotdevel)
-%\section{The \file{DESCRIPTION} File}{\packageDESCRIPTION{rpilotdevel}}
-%\section{Documentation Index}{\packageIndices{rpilotdevel}}
-
-\seealso{
-%%  ~~ Optional links to other man pages, e.g. ~~
-%%  ~~ \code{\link[<pkg>:<pkg>-package]{<pkg>}} ~~
-}
-\examples{
-%%  ~~ Optional simple examples of the most important functions ~~
-}

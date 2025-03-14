@@ -4,10 +4,14 @@
 \alias{plot.RAFFLE}
 \title{Plot a RAFFLE model}
 \usage{
-\method{plot}{RAFFLE}(x, ...)
+\method{plot}{RAFFLE}(x, treeNb = 1, infoType = 0, ...)
 }
 \arguments{
 \item{x}{an object of the RAFFLE class}
+
+\item{treeNb}{the tree that is printed. defaults to the first tree}
+
+\item{infoType}{If 0, prints model coefficients in leaf nodes. If 1, prints variable importance. Defaults to 0}
 
 \item{...}{other graphical parameters}
 }
@@ -15,6 +19,11 @@
 Plot a RAFFLE model
 }
 \examples{
-x <- rnorm(10)
-
+data <- iris
+y <- as.vector(data[, 1])
+X <- as.data.frame(data[, 2:4])
+raffle.out <- raffle(X, y, maxDepth = 3)
+# plot the first tree in the ensemble
+plot(raffle.out, treeNb = 1)
+plot(raffle.out, treeNb = 1, infoType = 1)
 }

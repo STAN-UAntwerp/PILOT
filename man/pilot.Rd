@@ -61,7 +61,7 @@ plot(pilot.out$residuals)
 preds.out <- predict(pilot.out, newdata = X)
 plot(preds.out, y); abline(0, 1)
 # print model matrix
-round(pilot.out$modelmat, 3)
+print(pilot.out)
 # plot pilot tree with models printed in leaf nodes
 plot(pilot.out)
 # plot pilot tree with a plot of variable importance in each leaf node

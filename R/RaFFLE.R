@@ -27,13 +27,14 @@
 #' data <- iris
 #' y <- as.vector(data[, 1])
 #' X <- as.data.frame(data[, 2:4])
-#' raffle.out <- raffle(X, y)
+#' raffle.out <- raffle(X, y, maxDepth = 3)
 #' # plot residuals
 #' plot(raffle.out$residuals)
 #' # generate predictions in-sample
 #' preds.out <- predict(raffle.out, newdata = X)
+#' plot(preds.out, y)
 #' # plot the first tree in the ensemble
-#' plot(raffle.out, y, treeNb = 1); abline(0, 1)
+#' plot(raffle.out, treeNb = 1)
 #' # print model matrix of the first tree
 #'  print(raffle.out, treeNb = 1)
 #' 
@@ -131,8 +132,13 @@ raffle <- function(X, y,
 #' @param treeNb the tree that is printed. defaults to the first tree
 #' @param ... other print parameters 
 #' @examples
-#' x <- rnorm(10)
-#' 
+#' data <- iris
+#' y <- as.vector(data[, 1])
+#' X <- as.data.frame(data[, 2:4])
+#' raffle.out <- raffle(X, y, maxDepth = 3)
+#'  print(raffle.out, treeNb = 1)
+#'  print(raffle.out, treeNb = 2)
+
 
 print.RAFFLE <- function(x, treeNb = 1, ...) {
   if (!inherits(x, "RAFFLE")) {
@@ -158,8 +164,13 @@ print.RAFFLE <- function(x, treeNb = 1, ...) {
 #' @param infoType If 0, prints model coefficients in leaf nodes. If 1, prints variable importance. Defaults to 0
 #' @param ... other graphical parameters 
 #' @examples
-#' x <- rnorm(10)
-#' 
+#' data <- iris
+#' y <- as.vector(data[, 1])
+#' X <- as.data.frame(data[, 2:4])
+#' raffle.out <- raffle(X, y, maxDepth = 3)
+#' # plot the first tree in the ensemble
+#' plot(raffle.out, treeNb = 1)
+#' plot(raffle.out, treeNb = 1, infoType = 1)
 
 plot.RAFFLE <- function(x, treeNb = 1, infoType = 0, ...) {
   if (!inherits(x, "RAFFLE")) {
@@ -179,13 +190,18 @@ plot.RAFFLE <- function(x, treeNb = 1, infoType = 0, ...) {
 #' Predict with a RAFFLE model
 #'
 #' Predict with a RAFFLE model
-#' @param x an object of the RAFFLE class
+#' @param object an object of the RAFFLE class
 #' @param newdata a matrix or data frame with new data
 #' @param maxDepth predict using all nodes of depth up to maxDepth. If NULL, predict using full tree.
 #' @examples
-#' x <- rnorm(10)
+#' data <- iris
+#' y <- as.vector(data[, 1])
+#' X <- as.data.frame(data[, 2:4])
+#' raffle.out <- raffle(X, y, maxDepth = 3)
+#' # generate predictions in-sample
+#' preds.out <- predict(raffle.out, newdata = X)
+#' plot(preds.out, y)
 #' 
-
 predict.RAFFLE <- function(object, newdata, maxDepth = NULL) {
   
   if (!inherits(object, "RAFFLE")) {
@@ -256,7 +272,7 @@ extractTree <- function(x, treeNb) {
   tr <- new(PILOTcpp)
   tr$fromJson(Jsontree) # read the PILOt object from the Json string
   
-  prepare_modelmat.out <- prepare_modelmat(x$modelcube[, , treeNb])
+  prepare_modelmat.out <- prepare_modelmat(x$modelcube[, , treeNb], ncol(x$df))
   
   # return output as a PILOT class
   individualpilot <- list(df = x$df,

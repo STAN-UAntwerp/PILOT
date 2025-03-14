@@ -4,10 +4,10 @@
 \alias{predict.RAFFLE}
 \title{Predict with a RAFFLE model}
 \usage{
-\method{predict}{RAFFLE}(x, newdata, maxDepth = NULL)
+\method{predict}{RAFFLE}(object, newdata, maxDepth = NULL)
 }
 \arguments{
-\item{x}{an object of the RAFFLE class}
+\item{object}{an object of the RAFFLE class}
 
 \item{newdata}{a matrix or data frame with new data}
 
@@ -17,6 +17,12 @@
 Predict with a RAFFLE model
 }
 \examples{
-x <- rnorm(10)
+data <- iris
+y <- as.vector(data[, 1])
+X <- as.data.frame(data[, 2:4])
+raffle.out <- raffle(X, y, maxDepth = 3)
+# generate predictions in-sample
+preds.out <- predict(raffle.out, newdata = X)
+plot(preds.out, y)
 
 }

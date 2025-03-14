@@ -36,7 +36,10 @@
 #' plot(pilot.out)
 #' # plot pilot tree with a plot of variable importance in each leaf node
 #' plot(pilot.out, infoType = 1)
-
+#' For more examples, we refer to the vignette:
+#'\dontrun{
+#'  vignette("DDC_examples")
+#'}
 
 
 pilot <- function(X, y,
@@ -98,7 +101,7 @@ pilot <- function(X, y,
   
   
   modelmat <- tr$print()
-  prepare_modelmat.out <- prepare_modelmat(modelmat)
+  prepare_modelmat.out <- prepare_modelmat(modelmat, ncol(X))
   
   # return output as a PILOT class
   output <- c(output, list(modelmat = prepare_modelmat.out$modelmat,
@@ -204,12 +207,16 @@ plot.PILOT <- function(x, infoType = 0, ...) {
         } else {
           coefs <- leafnodemodels[[which(node_unique_id == names(leafnodemodels))]]
           activeCoefs <- which(!is.na(coefs))[-1]
-          info <- paste(round(coefs[1], 2), " + \n",
-                        paste(round(coefs[activeCoefs], 2), "*",
-                              colnames(df)[activeCoefs - 1], collapse = " + \n") )
+          if (length(activeCoefs) > 0) {
+            info <- paste(round(coefs[1], 2), " + \n",
+                          paste(round(coefs[activeCoefs], 2), "*",
+                                colnames(df)[activeCoefs - 1], collapse = " + \n") )
+          } else {
+            info <- paste(round(coefs[1], 2))
+          }
         }
-        return(partynode(as.numeric(rownames(node_data)),
-                         info = info))
+        return(partykit::partynode(as.numeric(rownames(node_data)),
+                                   info = info))
       }
       
       # Create a split node
@@ -217,9 +224,9 @@ plot.PILOT <- function(x, infoType = 0, ...) {
         locallevels <- catInfo$factorlevels[[which(catInfo$catInds == node_data$feature_index)]]
         index <- rep(2L, length(locallevels))
         index[which(intToBits(node_data$left_levels) == 1)] <- 1L # levels going left
-        split <- partysplit(as.integer(node_data$feature_index), index = index)
+        split <- partykit::partysplit(as.integer(node_data$feature_index), index = index)
       } else { # one of pcon/blin/plin, i.e. with a valid split_value
-        split <- partysplit(as.integer(node_data$feature_index), breaks = node_data$split_value)
+        split <- partykit::partysplit(as.integer(node_data$feature_index), breaks = node_data$split_value)
       }
       
       # Find children: First two rows with depth one higher than current depth *below* the current row
@@ -241,15 +248,15 @@ plot.PILOT <- function(x, infoType = 0, ...) {
                         paste(round(coefs[activeCoefs], 2), "*",
                               colnames(df)[activeCoefs - 1], collapse = " + \n") )
         }
-        return(partynode(as.numeric(rownames(node_data)),
-                         info = info))
+        return(partykit::partynode(as.numeric(rownames(node_data)),
+                                   info = info))
       }
       
       # Recursively create child nodes
       kids <- lapply(children$unique_id, build_partynode, tree_matrix, leafnodemodels, catInfo, infoType)
       kids <- Filter(Negate(is.null), kids)  # Remove NULL values
       
-      return(partynode(as.numeric(rownames(node_data)), split = split, kids = kids))
+      return(partykit::partynode(as.numeric(rownames(node_data)), split = split, kids = kids))
     }
     
     
@@ -268,8 +275,10 @@ plot.PILOT <- function(x, infoType = 0, ...) {
       colm         <- apply(predictors, 2, mean, na.rm=TRUE)
       predictors   <- scale(predictors, center = colm, scale = FALSE)
       predscales   <- apply(predictors, 2, sd, na.rm=TRUE)
-      predscales   <- predscales / max(predscales, na.rm = TRUE)
-      predscales[which(is.na(predscales))] <- 0
+      if (any(!is.na(predscales))) {
+        predscales   <- predscales / max(predscales, na.rm = TRUE)
+        predscales[which(is.na(predscales))] <- 0
+      }
       names(predscales) <- colnames(df_local[relevantslopes])
       ordering <- order(predscales, decreasing = TRUE)[1:min(ncol(df_local[, relevantslopes, drop = FALSE]), maxNpreds)]
       signs <- sign(slopes[relevantslopes])
@@ -285,7 +294,7 @@ plot.PILOT <- function(x, infoType = 0, ...) {
     
     
     
-    predicted_nodes <- predict(pilot.out, newdata = df, type = 1)
+    predicted_nodes <- predict(x, newdata = df, type = 1)
     
     
     leaf_data_frames <- list()
@@ -303,7 +312,7 @@ plot.PILOT <- function(x, infoType = 0, ...) {
     
     # Build tree starting from root node (depth 0, nodeId 0)
     tree  <- build_partynode("0-0", tree_matrix = reducedmat, leafnodemodels, catInfo, infoType)
-    py    <- party(tree, df)
+    py    <- partykit::party(tree, df)
     
     return(list(py = py,
                 reducedmat = reducedmat,
@@ -327,27 +336,49 @@ plot.PILOT <- function(x, infoType = 0, ...) {
     
     leafnodes <- which(reducedmat$node_type==0)
     
-    gg <-  ggparty(py, layout = nodedf) +
-      geom_edge() +
-      geom_edge_label() 
+    gg <-  ggparty::ggparty(py, layout = nodedf, terminal_space = 0.5) +
+      ggparty::geom_edge() +
+      ggparty::geom_edge_label() 
     
     if (plotVarImportance) { # add plots to leaf nodes
-      gg <- gg + geom_node_label(aes(label = ifelse(!is.na(info), info, splitvar)), ids = "inner")  
+      gg <- gg + ggparty::geom_node_label(aes(label = ifelse(!is.na(.data$info), .data$info, .data$splitvar)), ids = "inner")  
       for (i in 1:length(leafnodes)) {
-        gg <- gg + 
-          geom_node_plot(
-            gglist = list(
-              geom_col(aes(x = feature, y = importance), 
-                       fill = ifelse(leaf_data_frames[[i]]$sign < 0, "firebrick", "steelblue"), 
-                       width = 0.5, color = "black",
-                       data = leaf_data_frames[[i]])
-            ),
-            scales = "free",
-            ids = leafnodes[i]
-          )
+        
+        if (nrow(leaf_data_frames[[i]]) == 1 && is.na((leaf_data_frames[[i]])[3])) {
+          gg <- gg + 
+            ggparty::geom_node_plot(
+              gglist = list(
+                ggplot2::geom_blank(aes(x = .data$feature, y = .data$importance), data = leaf_data_frames[[i]])
+              ),
+              scales = "free",
+              ids = leafnodes[i]
+            )
+        } else {
+          gg <- gg + 
+            ggparty::geom_node_plot(
+              gglist = list(
+                ggplot2::geom_col(aes(x = .data$feature, y = .data$importance), 
+                                  fill = ifelse(leaf_data_frames[[i]]$sign < 0, "firebrick", "steelblue"), 
+                                  width = 0.5, color = "black",
+                                  data = leaf_data_frames[[i]])
+              ),
+              scales = "free",
+              ids = leafnodes[i]
+            )
+        }
+        
       }
     } else  {
-      gg <- gg + geom_node_label(aes(label = ifelse(!is.na(info), info, splitvar)))  
+      gg <- gg + ggparty::geom_node_label(aes(label = ifelse(!is.na(.data$info), .data$info, .data$splitvar)), label.padding=unit(0.5, "lines")) 
+      
+      # for (i in 1:length(leafnodes)) {
+      #   gg + geom_node_plot(
+      #     gglist = list(geom_point(aes(x = 0, y = 0), alpha = 0)), #Adds an empty plot to force space
+      #     scales = "free",
+      #     width = 0.5,
+      #     ids = leafnodes[i]
+      #   )
+      # }
     }
     
     
@@ -368,7 +399,6 @@ plot.PILOT <- function(x, infoType = 0, ...) {
   build_party.out <- build_party(x$modelmat, x$leafnodemodels, x$df, x$catInfo, infoType = infoType)
   
   plotVarImportance = (infoType == 1) 
-  print(plotVarImportance)
   gg <- plot_party(build_party.out,
                    autoLayout = TRUE,
                    plotVarImportance = plotVarImportance)
@@ -419,27 +449,27 @@ predict.PILOT <- function(object, newdata = NULL, maxDepth = NULL, type = 0) {
     stop("Column names of new data do not match the training data.")
   }
   
-    catIDs <-  sapply(newdata, function(col) is.factor(col) || is.character(col))+0.0
-    if (!isTRUE(all.equal(catIDs, object$catInfo$catIDs))) {
-      stop("Categorical/factor variables of new data do not match those in the training data.")
-    }
-    
-    if (any(catIDs == 1)) {
-      catInds <- object$catInfo$catInds 
-      for (j in 1:length(catInds)) {
-        catID        <- catInds[j]
-        factorlevels <- levels(as.factor(newdata[, catID]))
-        if (length(setdiff(factorlevels, object$catInfo$factorlevels[[j]])) > 0) {
-          stop(paste0("Variable ", catID, " has categories not present in the training data."))
-        }
-        xf <- factor(newdata[, catID], levels = object$catInfo$factorlevels[[j]])
-        newdata[, catID]   <- as.integer(xf) - 1
+  catIDs <-  sapply(newdata, function(col) is.factor(col) || is.character(col))+0.0
+  if (!isTRUE(all.equal(catIDs, object$catInfo$catIDs))) {
+    stop("Categorical/factor variables of new data do not match those in the training data.")
+  }
+  
+  if (any(catIDs == 1)) {
+    catInds <- object$catInfo$catInds 
+    for (j in 1:length(catInds)) {
+      catID        <- catInds[j]
+      factorlevels <- levels(as.factor(newdata[, catID]))
+      if (length(setdiff(factorlevels, object$catInfo$factorlevels[[j]])) > 0) {
+        stop(paste0("Variable ", catID, " has categories not present in the training data."))
       }
+      xf <- factor(newdata[, catID], levels = object$catInfo$factorlevels[[j]])
+      newdata[, catID]   <- as.integer(xf) - 1
     }
-    
-    if (is.null(maxDepth)) {
-      maxDepth = object$parameters$maxDepth
-    }
+  }
+  
+  if (is.null(maxDepth)) {
+    maxDepth = object$parameters$maxDepth
+  }
   
   newdata <- as.matrix(newdata)
   preds   <- tr$predict(newdata, maxDepth, type)
@@ -457,7 +487,7 @@ predict.PILOT <- function(object, newdata = NULL, maxDepth = NULL, type = 0) {
 
 
 
-prepare_modelmat <- function(modelmat) {
+prepare_modelmat <- function(modelmat, d) {
   # Step 1: for each depth, add unique nodeId for each node which takes into acount skipped con nodes
   modelmat <- as.data.frame(modelmat)
   
@@ -525,7 +555,7 @@ prepare_modelmat <- function(modelmat) {
   leafnodemodels <- list()
   for (i in 1:nrow(modelmat)) {
     if (modelmat$node_type[i] == 0) { # leaf node
-      coefvec <- rep(0, ncol(X) + 1 ) # first index is intercept
+      coefvec <- rep(0, d + 1 ) # first index is intercept
       parentId <- modelmat$parentId[i]
       coefvec[1] <- modelmat$left_intercept[i]
       idx <- i

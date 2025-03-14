@@ -20,6 +20,6 @@ y <- as.vector(data[, 1])
 X <- as.data.frame(data[, 2:4])
 pilot.out <- pilot(X, y)
 # print model matrix
-round(pilot.out$modelmat, 3)
+print(pilot.out)
 
 }
