@@ -1,8 +1,15 @@
-This is an implementation for the PIecewise Linear Organic Tree (PILOT), a linear model tree algorithm proposed in the paper Raymaekers, J., Rousseeuw, P. J., Verdonck, T., & Yao, R. (2024). Fast linear model trees by PILOT. Machine Learning, 1-50. https://doi.org/10.1007/s10994-024-06590-3.
+This repository contains an implementation of the PIecewise Linear Organic Tree (PILOT) and 
+RAndom Forest FEaturing Linear Extensions (RaFFLE) algorithms proposed in 
 
-This repository also includes the implementation for RaFFLE, a random forest of PILOT trees:
-Raymaekers, J., Rousseeuw, P. J., Servotte, T., Verdonck, T., & Yao, R. (2025). A Powerful Random Forest Featuring Linear Extensions (RaFFLE). _Under Review_
+- Raymaekers, J., Rousseeuw, P. J., Verdonck, T., & Yao, R. (2024). Fast linear model trees by PILOT. Machine Learning, 1-50. https://doi.org/10.1007/s10994-024-06590-3.
 
+- Raymaekers, J., Rousseeuw, P. J., Servotte, T., Verdonck, T., & Yao, R. (2025). A Powerful Random Forest Featuring Linear Extensions (RaFFLE). https://doi.org/10.48550/arXiv.2502.10185
+
+The main implementation is a Python wrapper around a C++ implementation of PILOT.
+In addition to the main implementation, there is:
+
+- a pure Python implementation in the branch ""
+- an R implementation in the branch "pilot-in-R".
 ### Requirements:
 Requirements can be installed by running
 ```
