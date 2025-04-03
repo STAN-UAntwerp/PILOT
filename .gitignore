@@ -1,0 +1,12 @@
+Data/*
+Output/**
+!Output/**/
+Output/profile_results
+Output/archive
+!Output/**/*.csv
+pyrightconfig.json
+*.pyc
+build/
+pilot/cpilot.cpython-310-x86_64-linux-gnu.so
+screenlog.*
+benchmark_logs.txt

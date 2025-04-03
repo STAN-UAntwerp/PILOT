@@ -1,20 +1,43 @@
 """ This module implements PILOT"""
+
+import warnings
+import uuid
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+
+warnings.simplefilter("ignore", category=NumbaDeprecationWarning)
+warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
+
 import numba as nb
-from numba import jit
 import numpy as np
 import pandas as pd
+
+from typing import Optional
+from numba import jit, objmode
 from .Tree import tree
+
+
+from sklearn.base import BaseEstimator
+
+REGRESSION_NODES = ["con", "lin", "pcon", "blin", "plin"]
+NODE_PREFERENCE_ORDER = REGRESSION_NODES + ["pconc"]
+DEFAULT_DF_SETTINGS = {"con": 1, "lin": 2, "pcon": 5, "blin": 5, "plin": 7, "pconc": 5}
+
+
+@nb.njit()
+def random_sample(a, k):
+    with objmode(a="int64[:]"):
+        a = np.random.choice(a, size=k, replace=False)
+    return a
+
 
 @nb.njit(parallel=True)
 def isin(a, b):
     """
     For each element in 'a' compute if it is in 'b'
-
     parameters:
     ----------
     a: ndarray, 1D float array. An integer array of indices.
     b: ndarray, 1D float array. An integer array of indices.
-
     returns:
     ------
     ndarray: 1D boolean array, indicating if the elements in 'a' is in 'b'.
@@ -30,10 +53,9 @@ def isin(a, b):
 
 
 @jit(nb.float64[:](nb.types.unicode_type, nb.int64, nb.float64[:], nb.int64[:]))
-def loss_fun(criteria, num, Rss, k):
+def loss_fun(criteria, num, Rss, k: np.ndarray):
     """
     This function is used to compute the information criteria
-
     parameters:
     ----------
     criteria: str,
@@ -44,7 +66,6 @@ def loss_fun(criteria, num, Rss, k):
         the residual sum of squares, can be a vector
     k: ndarray,
         1D int array to describe the degrees of freedom, can be a vector
-
     return:
     -------
     float: The loss according to the information criteria
@@ -71,17 +92,21 @@ def loss_fun(criteria, num, Rss, k):
             nb.int64[:],
         )
     )(
-        nb.int64[:],
-        nb.types.ListType(nb.types.unicode_type),
-        nb.int64,
-        nb.int64[:, :],
-        nb.float64[:, :],
-        nb.float64[:, :],
-        nb.types.unicode_type,
-        nb.int64,
-        nb.int64,
-        nb.int64[:],
-        nb.int64[:],
+        nb.int64[:],  # index
+        nb.typeof(["a", "b"]),  # regression_nodes
+        nb.int64,  # n_features
+        nb.int64[:, :],  # sorted_X_indices
+        nb.float64[:, :],  # X
+        nb.float64[:, :],  # y
+        nb.types.unicode_type,  # split_criterion
+        nb.int64,  # min_sample_leaf
+        nb.int64[:],  # k_con
+        nb.int64[:],  # k_lin
+        nb.int64[:],  # k_split_nodes
+        nb.int64[:],  # k_pconc
+        nb.int64[:],  # categorical
+        nb.int64,  # max_features_considered,
+        nb.int64,  # min_unique_values_regression
     ),
     nopython=True,
 )
@@ -94,14 +119,17 @@ def best_split(
     y,
     split_criterion,
     min_sample_leaf,
-    min_sample_alpha,
-    k,
+    k_con,
+    k_lin,
+    k_split_nodes,
+    k_pconc,
     categorical,
+    max_features_considered,
+    min_unique_values_regression,
 ):
     """
     This function finds the best split as well as the linear
     model on the node.
-
     parameters:
     -----------
     index: ndarray,
@@ -124,14 +152,14 @@ def best_split(
     min_sample_leaf: int,
         the minimal number of samples required
         to be at a leaf node
-    min_sample_alpha: int,
-        the minimal number of samples required
-        to fit a model that splits the node.
-    k: ndarray,
-        1D int array, the degrees of freedom for 'pcon'/'blin'/'plin'.
+    k_*: ndarray
+        degrees of freedom for each regression node
     categorical: ndarray,
         1D int array, the columns of categorical variable, array.
-
+    max_features_considered: int
+        number of features to consider for each split (randomly sampled)
+    min_unique_values_regression: int
+        minimum number of unique values necessary to consider a linear node
     returns:
     --------
     best_feature: int,
@@ -152,7 +180,6 @@ def best_split(
     pivot_c: ndarray,
         1D int array. An array of the levels belong to the left node.
         Used if the chosen feature/predictor is categorical.
-
     Remark:
     -------
     If the input data is not allowed to split, the function will return default
@@ -179,7 +206,7 @@ def best_split(
     intercept = np.zeros((l, 2)) * np.nan
 
     # search for the best split among all features, negelecting the indices column
-    for feature_id in range(1, n_features + 1):
+    for feature_id in random_sample(np.arange(1, n_features + 1), max_features_considered):
         # get sorted X, y
         idx = sorted_X_indices[feature_id - 1]
         idx = idx[isin(idx, index)]
@@ -199,9 +226,7 @@ def best_split(
                     [
                         np.sum(X_sorted[:, feature_id]),
                         np.sum(X_sorted[:, feature_id] ** 2),
-                        np.sum(
-                            X_sorted[:, feature_id].copy().reshape(-1, 1) * y_sorted
-                        ),
+                        np.sum(X_sorted[:, feature_id].copy().reshape(-1, 1) * y_sorted),
                         np.sum(y_sorted),
                         np.sum(y_sorted**2),
                     ],
@@ -214,15 +239,13 @@ def best_split(
                 coef_con = 0
                 # compute the RSS and the loss according to the information criterion
                 rss = (
-                    Moments[1, 4]
-                    + (num[1] * intercept_con**2)
-                    - 2 * intercept_con * Moments[1, 3]
+                    Moments[1, 4] + (num[1] * intercept_con**2) - 2 * intercept_con * Moments[1, 3]
                 )
                 loss = loss_fun(
                     criteria=split_criterion,
                     num=num[1],
                     Rss=np.array([rss]),
-                    k=np.array([1], dtype=np.int64),
+                    k=k_con,
                 )
                 # update best_loss immediately
                 if best_node == "" or loss.item() < best_loss:
@@ -233,15 +256,13 @@ def best_split(
                     lm_L = np.array([coef_con, intercept_con])
 
             # LIN:
-            if "lin" in regression_nodes and lenp >= 5:
+            if "lin" in regression_nodes and lenp >= min_unique_values_regression:
                 var = num[1] * Moments[1, 1] - Moments[1, 0] ** 2
                 # in case a constant feature
                 if var == 0:
                     coef_lin = 0
                 else:
-                    coef_lin = (
-                        num[1] * Moments[1, 2] - Moments[1, 0] * Moments[1, 3]
-                    ) / var
+                    coef_lin = (num[1] * Moments[1, 2] - Moments[1, 0] * Moments[1, 3]) / var
                 intercept_lin = (Moments[1, 3] - coef_lin * Moments[1, 0]) / num[1]
                 # compute the RSS and the loss according to the information criterion
                 rss = (
@@ -256,7 +277,7 @@ def best_split(
                     criteria=split_criterion,
                     num=num[1],
                     Rss=np.array([rss]),
-                    k=np.array([2], dtype=np.int64),
+                    k=k_lin,
                 )
                 # update best_loss immediately
                 if best_loss == "" or loss.item() < best_loss:
@@ -265,10 +286,6 @@ def best_split(
                     best_feature = feature_id
                     interval = np.array([possible_p[0], possible_p[-1]])
                     lm_L = np.array([coef_lin, intercept_lin])
-
-            # If the number of samples is small, we only consider lin and con
-            if num[1] < min_sample_alpha:
-                continue
 
             # For blin, we need to maintain another Gram/moment matrices and the knot xi
             if "blin" in regression_nodes:
@@ -323,17 +340,15 @@ def best_split(
                     if (
                         pivot != possible_p[0]
                         and p >= 1
-                        and lenp >= 5
+                        and lenp >= min_unique_values_regression
                         and np.linalg.det(XtX) > 0.001
                         and num[0] + X_add.shape[0] >= min_sample_leaf
                         and num[1] - X_add.shape[0] >= min_sample_leaf
                     ):
                         coefs = np.linalg.solve(XtX, XtY).flatten()
                         coef[i, :] = np.array([coefs[1], coefs[1] + coefs[2]])
-                        intercept[i, :] = np.array(
-                            [coefs[0], coefs[0] - coefs[2] * pivot]
-                        )
-                    i += 1
+                        intercept[i, :] = np.array([coefs[0], coefs[0] - coefs[2] * pivot])
+                    i += 1  # we add a dimension to the coef and intercept arrays
                     pre_pivot = pivot
 
                 # update num after blin is fitted
@@ -361,24 +376,28 @@ def best_split(
                 if "pcon" in regression_nodes:
                     coef[i, :] = np.array([0, 0])
                     intercept[i, :] = (Moments[:, 3]) / num
-                    i += 1
+                    i += 1  # we add a dimension to the coef and intercept arrays
 
                 # 'plin' for the first split candidate is equivalent to 'pcon'
                 if (
                     "plin" in regression_nodes
-                    and p >= 4
-                    and lenp - p >= 5
+                    and p
+                    >= min_unique_values_regression
+                    - 1  # number of unique values smaller than current value
+                    and lenp - p
+                    >= min_unique_values_regression  # number of unique values larger than current value
                     and 0 not in num * Moments[:, 1] - Moments[:, 0] ** 2
                 ):
                     # coef and intercept are vectors of dimension 1
                     # have to reshape X column in order to get correct cross product
                     # the intercept should be divided by the total number of samples
-                    coef[i, :] = (
-                        num * Moments[:, 2] - Moments[:, 0] * Moments[:, 3]
-                    ) / (num * Moments[:, 1] - Moments[:, 0] ** 2)
+                    coef[i, :] = (num * Moments[:, 2] - Moments[:, 0] * Moments[:, 3]) / (
+                        num * Moments[:, 1] - Moments[:, 0] ** 2
+                    )
                     intercept[i, :] = (Moments[:, 3] - coef[i, :] * Moments[:, 0]) / num
 
                 # compute the rss and loss of the above 3 methods
+                # The dimension rss is between 1 and 3 (depending on the regression_nodes)
                 rss = (
                     Moments[:, 4]
                     + (num * intercept**2)
@@ -388,22 +407,23 @@ def best_split(
                     - 2 * coef * Moments[:, 2]
                 ).sum(axis=1)
 
-                # if no fit is done, continue6
+                # if no fit is done, continue
                 if np.isnan(rss).all():
                     continue
 
                 # update the best loss
                 rss = np.maximum(10**-8, rss)
-                loss = loss_fun(criteria=split_criterion, num=num.sum(), Rss=rss, k=k)
+                loss = loss_fun(
+                    criteria=split_criterion,
+                    num=num.sum(),
+                    Rss=rss,
+                    k=k_split_nodes,
+                )
 
-                if ~np.isnan(loss).all() and (
-                    best_node == "" or np.nanmin(loss) < best_loss
-                ):
+                if ~np.isnan(loss).all() and (best_node == "" or np.nanmin(loss) < best_loss):
                     best_loss = np.nanmin(loss)
-                    index_min = np.where(loss == best_loss)[0].item()
-                    add_index = 1 * ("lin" in regression_nodes) + 1 * (
-                        "con" in regression_nodes
-                    )
+                    index_min = np.where(loss == best_loss)[0][0]
+                    add_index = 1 * ("lin" in regression_nodes) + 1 * ("con" in regression_nodes)
                     best_node = regression_nodes[add_index + index_min]
                     best_feature = feature_id  # asigned but will not be used for 'lin'
                     interval = np.array([possible_p[0], possible_p[-1]])
@@ -446,7 +466,7 @@ def best_split(
                 criteria=split_criterion,
                 num=num.sum(),
                 Rss=np.array([rss]),
-                k=np.array([5], dtype=np.int64),
+                k=k_pconc,
             )
             if best_node == "" or loss.item() < best_loss:
                 best_feature = feature_id
@@ -460,29 +480,27 @@ def best_split(
     return best_feature, best_pivot, best_node, lm_L, lm_R, interval, pivot_c
 
 
-class PILOT(object):
+class PILOT(BaseEstimator):
     """
     This is an implementation of the PILOT method.
-
     Attributes:
     -----------
     max_depth: int,
         the max depth allowed to grow in a tree.
+    max_model_depth: int,
+        same as max_depth but including linear nodes
     split_criterion: str,
         the criterion to split the tree,
         we have 'AIC'/'AICc'/'BIC'/'adjusted R^2', etc.
     regression_nodes: list,
         A list of regression models used.
         They are 'con', 'lin', 'blin', 'pcon', 'plin'.
-    min_sample_fit: int,
+    min_sample_split: int,
         the minimal number of samples required
-        to fit any model in an internal node.
+        to split an internal node.
     min_sample_leaf: int,
         the minimal number of samples required
         to be at a leaf node.
-    min_sample_alpha: int,
-        the minimal number of samples required
-        to fit a model that splits the node.
     step_size: int,
         boosting step size.
     X: ndarray,
@@ -505,16 +523,21 @@ class PILOT(object):
     def __init__(
         self,
         max_depth=12,
+        max_model_depth=100,
         split_criterion="BIC",
-        min_sample_fit=10,
+        min_sample_split=10,
         min_sample_leaf=5,
-        min_sample_alpha=10,
         step_size=1,
+        random_state=42,
+        truncation_factor: int = 3,
+        rel_tolerance: float = 0,
+        df_settings: dict[str, int] | None = None,
+        regression_nodes: list[str] | None = None,
+        min_unique_values_regression: float = 5,
     ) -> None:
         """
         Here we input model parameters to build a tree,
         not all the parameters for split finding.
-
         parameters:
         -----------
         max_depth: int,
@@ -522,27 +545,40 @@ class PILOT(object):
         split_criterion: str,
             the criterion to split the tree,
             we have 'AIC'/'AICc'/'BIC'/'adjusted R^2', etc.
-        min_sample_fit: int,
+        min_sample_split: int,
             the minimal number of samples required
-            to fit any model in an internal node.
+            to split an internal node.
         min_sample_leaf: int,
             the minimal number of samples required
             to be at a leaf node.
-        min_sample_alpha: int,
-            the minimal number of samples required
-            to fit a model that splits the node.
         step_size: int,
             boosting step size.
+        random_state: int,
+            Not used, added for compatibility with sklearn framework
+        truncation_factor: float,
+            By default, predictions are truncated at [-3B, 3B] where B = y_max = -y_min for centered data.
+            The multiplyer (3 by default) can be adapted.
+        rel_tolerance: float,
+            Minimum percentage decrease in RSS in order for a linear node to be added (if 0, there is no restriction on the number of linear nodes).
+            Used to avoid recursion errors.
+        df_settings:
+            Mapping from regression node type to the number of degrees of freedom for that node type.
+        regression_nodes:
+            List of node types to consider for numerical features. If None, all available regression nodes are considered
         """
 
         # initialize class attributes
         self.max_depth = max_depth
+        self.max_model_depth = max_model_depth
         self.split_criterion = split_criterion
-        self.regression_nodes = ["con", "lin", "blin", "pcon", "plin"]
-        self.min_sample_fit = min_sample_fit
+        self.regression_nodes = REGRESSION_NODES if regression_nodes is None else regression_nodes
+        self.min_sample_split = min_sample_split
         self.min_sample_leaf = min_sample_leaf
-        self.min_sample_alpha = min_sample_alpha
         self.step_size = step_size
+        self.random_state = random_state
+        self.truncation_factor = truncation_factor
+        self.rel_tolerance = rel_tolerance
+        self.min_unique_values_regression = min_unique_values_regression
 
         # attributes used for fitting
         self.X = None
@@ -551,51 +587,64 @@ class PILOT(object):
         self.sorted_X_indices = None
         self.ymean = None
         self.n_features = None
+        self.max_features_considered = None
         self.categorical = np.array([-1])
         self.model_tree = None
         self.B1 = None
         self.B2 = None
+        self.recursion_counter = {"lin": 0, "blin": 0, "pcon": 0, "plin": 0, "pconc": 0}
+        self.tree_depth = 0
+        self.model_depth = 0
 
-        rule = {"con": 0, "lin": 1, "blin": 2, "pcon": 3, "plin": 4}
-        self.regression_nodes.sort(key=lambda x: rule[x])
-        df = [5, 5, 7]
-        k = {"blin": df[0], "pcon": df[1], "plin": df[2]}
-        # used to store the degrees of freedom
-        self.k = np.array(
-            [k[key] for key in self.regression_nodes if key not in ["con", "lin"]],
-            dtype=np.int64,
+        # order of preference for regression nodes
+        # this cannot be changed as best split relies on this specific order
+        self.regression_nodes = [
+            node for node in NODE_PREFERENCE_ORDER if node in self.regression_nodes
+        ]
+
+        # degrees of freedom for each regression node
+        self.k = DEFAULT_DF_SETTINGS.copy()
+        if df_settings is not None:
+            self.k.update(df_settings)
+
+        # df need to be stored as separate numpy arrays for numba
+        self.k = {k: np.array([v], dtype=np.int64) for k, v in self.k.items()}
+        self.k_con = self.k["con"]
+        self.k_lin = self.k["lin"]
+        self.k_split_nodes = np.concatenate(
+            [self.k[node] for node in self.regression_nodes if node in ["blin", "pcon", "plin"]]
         )
-        self.regression_nodes = nb.typed.List(self.regression_nodes)
+        self.k_pconc = self.k["pconc"]
 
-    def stop_criterion(self, tree_depth, y):
+    def stop_criterion(self, tree_depth, model_depth, y):
         """
         Stop splitting when either the tree has reached max_depth or the number of the
         data in the leaf node is less than min_sample_leaf or the variance of the node
         is less than the threshold.
-
         parameters:
         -----------
         tree_depth: int,
             Current depth.
         y: ndarray,
             2D float array. The response variable.
-
         returns:
         --------
         boolean:
             whether to stop the recursion.
-
         """
-        if tree_depth >= self.max_depth or y.shape[0] <= self.min_sample_fit:
+        if (
+            (tree_depth >= self.max_depth)
+            or (model_depth >= self.max_model_depth)
+            or (y.shape[0] <= self.min_sample_split)
+        ):
             return False
         return True
 
-    def build_tree(self, tree_depth, indices, rss):
+    def build_tree(self, tree_depth, model_depth, indices, rss):
         """
         This function is based on the recursive algorithm. We keep
         growing the tree, until it meets the stopping criterion.
         The parameters root is to save the tree structure.
-
         parameters:
         -----------
         tree_depth: int,
@@ -607,16 +656,15 @@ class PILOT(object):
             induce sorted_X.
         rss: float,
             The rss of the current node before fitting a model.
-
         return:
         -------
         tree object:
             If it meets stop_criterion or can not be further split,
             return end node (denoted by 'END').
-
         """
 
         tree_depth += 1
+        model_depth += 1
         # fit models on the node
         best_feature, best_pivot, best_node, lm_l, lm_r, interval, pivot_c = best_split(
             indices,
@@ -627,20 +675,26 @@ class PILOT(object):
             self.y,
             self.split_criterion,
             self.min_sample_leaf,
-            self.min_sample_alpha,
-            self.k,
+            self.k_con,
+            self.k_lin,
+            self.k_split_nodes,
+            self.k_pconc,
             self.categorical,
+            self.max_features_considered,
+            self.min_unique_values_regression,
         )  # find the best split
         # stop fitting the tree
         if best_node == "":
             return tree(node="END", Rt=rss)
-        elif best_node in ["lin", "con"]:
+        elif best_node in ["con", "lin"]:
             # do not include 'lin' and 'con' in the depth calculation
             tree_depth -= 1
 
-        # build tree only if it doesn't meet the stop_criterion
-        if self.stop_criterion(tree_depth, self.y[indices]):
+        self.tree_depth = max(self.tree_depth, tree_depth)
+        self.model_depth = max(self.model_depth, model_depth)
 
+        # build tree only if it doesn't meet the stop_criterion
+        if self.stop_criterion(tree_depth, model_depth, self.y[indices]):
             # define a new node
             # best_feature should - 1 because the 1st column is the indices
             node = tree(
@@ -656,6 +710,7 @@ class PILOT(object):
 
             # update X and y by vectorization, reshape them to make sure their sizes are correct
             if best_node == "lin":
+                rss_previous = np.sum(self.y[indices] ** 2)
                 # unpdate y
                 raw_res = self.y[indices] - self.step_size * (
                     lm_l[0] * self.X[indices, best_feature].reshape(-1, 1) + lm_l[1]
@@ -664,15 +719,23 @@ class PILOT(object):
                 self.y[indices] = self.y0[indices] - np.maximum(
                     np.minimum(self.y0[indices] - raw_res, self.B1), self.B2
                 )
+                rss_new = np.sum(self.y[indices] ** 2)
+                improvement = (rss_previous - rss_new) / rss_previous
+                if improvement < self.rel_tolerance:
+                    node.left = tree(node="END", Rt=np.sum(self.y[indices] ** 2))
+                    return node
 
-                # recursion
-                node.left = self.build_tree(
-                    tree_depth,
-                    indices,
-                    np.maximum(
-                        0, np.sum((self.y[indices] - np.mean(self.y[indices])) ** 2)
-                    ),
-                )
+                else:
+                    self.recursion_counter[best_node] += 1
+                    # recursion
+                    node.left = self.build_tree(
+                        tree_depth=tree_depth,
+                        model_depth=model_depth,
+                        indices=indices,
+                        rss=np.maximum(
+                            0, np.sum((self.y[indices] - np.mean(self.y[indices])) ** 2)
+                        ),
+                    )
 
             elif best_node == "con":
                 self.y[indices] -= self.step_size * (lm_l[1])
@@ -693,47 +756,47 @@ class PILOT(object):
                 # compute the raw and truncated predicrtion
                 rawres_left = (
                     self.y[indices_left]
-                    - (
-                        lm_l[0] * self.X[indices_left, best_feature].reshape(-1, 1)
-                        + lm_l[1]
-                    )
+                    - (lm_l[0] * self.X[indices_left, best_feature].reshape(-1, 1) + lm_l[1])
                 ).copy()
                 self.y[indices_left] = self.y0[indices_left] - np.maximum(
                     np.minimum(self.y0[indices_left] - rawres_left, self.B1), self.B2
                 )
                 rawres_right = (
                     self.y[indices_right]
-                    - (
-                        lm_r[0] * self.X[indices_right, best_feature].reshape(-1, 1)
-                        + lm_r[1]
-                    )
+                    - (lm_r[0] * self.X[indices_right, best_feature].reshape(-1, 1) + lm_r[1])
                 ).copy()
                 self.y[indices_right] = self.y0[indices_right] - np.maximum(
                     np.minimum(self.y0[indices_right] - rawres_right, self.B1), self.B2
                 )
 
                 # recursion
-                node.left = self.build_tree(
-                    tree_depth,
-                    indices_left,
-                    np.maximum(
-                        0,
-                        np.sum(
-                            (self.y[indices_left] - np.mean(self.y[indices_left])) ** 2
+                try:
+                    self.recursion_counter[best_node] += 1
+                    node.left = self.build_tree(
+                        tree_depth=tree_depth,
+                        model_depth=model_depth,
+                        indices=indices_left,
+                        rss=np.maximum(
+                            0,
+                            np.sum((self.y[indices_left] - np.mean(self.y[indices_left])) ** 2),
                         ),
-                    ),
-                )
-                node.right = self.build_tree(
-                    tree_depth,
-                    indices_right,
-                    np.maximum(
-                        0,
-                        np.sum(
-                            (self.y[indices_right] - np.mean(self.y[indices_right]))
-                            ** 2
+                    )
+
+                    node.right = self.build_tree(
+                        tree_depth=tree_depth,
+                        model_depth=model_depth,
+                        indices=indices_right,
+                        rss=np.maximum(
+                            0,
+                            np.sum((self.y[indices_right] - np.mean(self.y[indices_right])) ** 2),
                         ),
-                    ),
-                )
+                    )
+                except RecursionError:
+                    print(
+                        f"ERROR: encountered recursion error, return END node. "
+                        f"Current counter: {self.recursion_counter}"
+                    )
+                    return tree(node="END", Rt=rss)
 
         else:
             # stop recursion if meeting the stopping criterion
@@ -741,23 +804,41 @@ class PILOT(object):
 
         return node
 
-    def fit(self, X, y, categorical=np.array([-1])):
+    def _validate_data(self):
+        assert np.issubdtype(
+            self.sorted_X_indices.dtype, np.int64
+        ), f"sorted_X_indices should be int64, but is {self.sorted_X_indices.dtype}"
+        assert np.issubdtype(
+            self.X.dtype, np.float64
+        ), f"X should be float64, but is {self.X.dtype}"
+        assert np.issubdtype(
+            self.y.dtype, np.float64
+        ), f"y should be float64, but is {self.y.dtype}"
+        assert np.issubdtype(
+            self.categorical.dtype, np.int64
+        ), f"categorical should be int64, but is {self.categorical.dtype}"
+
+    def fit(
+        self,
+        X,
+        y,
+        categorical=np.array([-1]),
+        max_features_considered: Optional[int] = None,
+        **kwargs,
+    ):
         """
         This function is used for model fitting. It should return
         a pruned tree, which includes the location of each node
         and the linear model for it. The results should be saved
         in the form of class attributes.
-
         parameters:
         -----------
         X: Array-like objects, usually pandas.DataFrame or numpy arrays.
             The predictors.
         y: Array-like objects, usually pandas.DataFrame or numpy arrays.
             The responses.
-        categorical: ndarray,
-            1D array of column indices of categorical variables.
-            We assume that they are integer valued.
-
+        categorical: An array of column indices of categorical variables.
+                     We assume that they are integer valued.
         return:
         -------
         None
@@ -777,11 +858,13 @@ class PILOT(object):
 
         # define class attributes
         self.n_features = X.shape[1]
+        self.max_features_considered = (
+            min(max_features_considered, self.n_features)
+            if max_features_considered is not None
+            else self.n_features
+        )
         n_samples = X.shape[0]
         self.categorical = categorical
-
-        # feature importance
-        self.feature_importance = np.zeros(self.n_features)
 
         # insert indices to the first column of X to memorize the indices
         self.X = np.c_[np.arange(0, n_samples, dtype=int), X]
@@ -800,16 +883,17 @@ class PILOT(object):
         # y should be remembered and modified during 'boosting'
         self.y = y.copy()  # calculate on y directly to save memory
         self.y0 = y.copy()  # for the truncation procudure
-        self.B1 = (
-            5 * y.max() / 4 - y.min() / 4
-        )  # compute the upper bound for the first truncation
-        self.B2 = (
-            -y.max() / 4 + 5 * y.min() / 4
-        )  # compute the lower bound for the second truncation
+        padding = (self.truncation_factor - 1) * ((y.max() - y.min()) / 2)
+        self.B1 = y.max() + padding  # compute the upper bound for the first truncation
+        self.B2 = y.min() - padding  # compute the lower bound for the second truncation
 
+        self._validate_data()
         # build the tree, only need to take in the indices for X
         self.model_tree = self.build_tree(
-            -1, self.sorted_X_indices[0], np.sum((y - y.mean()) ** 2)
+            tree_depth=-1,
+            model_depth=-1,
+            indices=self.sorted_X_indices[0],
+            rss=np.sum((y - y.mean()) ** 2),
         )
 
         # if the first node is 'con'
@@ -818,43 +902,37 @@ class PILOT(object):
 
         return
 
-    def predict(self, model=None, x=None, maxd=np.inf):
+    def predict(self, X, model=None, maxd=np.inf, **kwargs):
         """
         This function is used for model predicting. Given a dataset,
         it will find its location and respective linear model.
-
         parameters:
         -----------
-        model: The tree objects,
-            by default we use the model tree fit on the data.
-        x: Array-like objects, pandas.DataFrame or numpy arrays,
-            new sample need to be predicted
-        maxd: int,
-          the maximum depth to be considered for prediction,
-          can be less than the true depth of the tree.
-
+        model: The tree objects
+        x: Array-like objects, new sample need to be predicted
+        maxd: The maximum depth to be considered for prediction,
+              can be less than the true depth of the tree.
         return:
         -------
-        y_hat: ndarray,
+        y_hat: numpy.array
                the predicted y values
         """
         y_hat = []
         if model is None:
             model = self.model_tree
 
-        if isinstance(x, pd.core.frame.DataFrame):
-            x = np.array(x)
+        if isinstance(X, pd.core.frame.DataFrame):
+            X = np.array(X)
 
         if self.model_tree.node == "END":
-            return np.ones(x.shape[0]) * self.ymean
+            return np.ones(X.shape[0]) * self.ymean
 
-        for row in range(x.shape[0]):
+        for row in range(X.shape[0]):
             t = model
             y_hat_one = 0
             while t.node != "END" and t.depth < maxd:
-
                 if t.node == "pconc":
-                    if np.isin(x[row, t.pivot[0]], t.pivot_c):
+                    if np.isin(X[row, t.pivot[0]], t.pivot_c):
                         y_hat_one += self.step_size * (t.lm_l[1])
                         t = t.left
                     else:
@@ -862,14 +940,14 @@ class PILOT(object):
                         t = t.right
 
                 # go left if 'lin'
-                elif t.node in ["lin", "con"] or x[row, t.pivot[0]] <= t.pivot[1]:
+                elif t.node in ["lin", "con"] or X[row, t.pivot[0]] <= t.pivot[1]:
                     if t.node == "lin":
                         # truncate both on the left and the right
                         y_hat_one += self.step_size * (
                             t.lm_l[0]
                             * np.min(
                                 [
-                                    np.max([x[row, t.pivot[0]], t.interval[0]]),
+                                    np.max([X[row, t.pivot[0]], t.interval[0]]),
                                     t.interval[1],
                                 ]
                             )
@@ -878,15 +956,13 @@ class PILOT(object):
                     else:
                         # truncate on the left
                         y_hat_one += self.step_size * (
-                            t.lm_l[0] * np.max([x[row, t.pivot[0]], t.interval[0]])
-                            + t.lm_l[1]
+                            t.lm_l[0] * np.max([X[row, t.pivot[0]], t.interval[0]]) + t.lm_l[1]
                         )
                     t = t.left
 
                 else:
                     y_hat_one += self.step_size * (
-                        t.lm_r[0] * np.min([x[row, t.pivot[0]], t.interval[1]])
-                        + t.lm_r[1]
+                        t.lm_r[0] * np.min([X[row, t.pivot[0]], t.interval[1]]) + t.lm_r[1]
                     )
                     t = t.right
 
@@ -898,57 +974,81 @@ class PILOT(object):
 
             y_hat.append(y_hat_one)
         return np.array(y_hat)
-    
-    def __get_feature_importance(self, node):
-        # get the root node
-        if node is None:
-            node = self.model_tree
-        if node.node in ['lin','con']:
-            # compute the variance reduction of the current node
-            var_drop = node.Rt - node.left.Rt
-            selected_var = node.pivot[0] 
-            self.feature_importance[selected_var] += var_drop
-            self.__get_feature_importance(node.left)
-        elif node.node == 'END':
-            return
-        else:
-            var_drop = node.Rt - node.left.Rt - node.right.Rt
-            selected_var = node.pivot[0] 
-            self.feature_importance[selected_var] += var_drop
-            self.__get_feature_importance(node.left)
-            self.__get_feature_importance(node.right)
 
-    def get_feature_importance(self):
-        self.__get_feature_importance(self.model_tree)
-        return (self.feature_importance/sum(self.feature_importance))
-
-    def print_tree(self, model_tree, level):
+    def print_tree(self, level: int = 2):
         """
         A function for tree visualization
-
         parameters:
         -----------
         """
-        if model_tree is not None:
-            self.print_tree(model_tree.left, level + 1)
-            if model_tree.node == "lin":
-                print(
-                    " " * 8 * level + "-->",
-                    model_tree.node,
-                    (round(model_tree.pivot[0], 3)),
-                    round(model_tree.Rt, 3),
-                    (round(model_tree.lm_l[0], 3), round(model_tree.lm_l[1], 3)),
-                    None,
+        print_tree_inner_function(self.model_tree, level=level)
+
+    def get_model_summary(self, feature_names: list[str] | None = None) -> pd.DataFrame:
+        """
+        Get a summary table of the model tree
+        """
+        summary = []
+        tree_summary(self.model_tree, 0, "root", None, summary)
+        summary_df = pd.DataFrame(summary)
+        if feature_names is not None:
+            summary_df = summary_df.assign(
+                pivot_name=lambda x: x.pivot_idx.map(
+                    lambda y: feature_names[int(y)] if not np.isnan(y) else None
                 )
-            elif model_tree.node == "END":
-                print(" " * 8 * level + "-->" + "END", round(model_tree.Rt, 3))
-            else:
-                print(
-                    " " * 8 * level + "-->",
-                    model_tree.node,
-                    (round(model_tree.pivot[0], 3), round(model_tree.pivot[1], 3)),
-                    round(model_tree.Rt, 3),
-                    (round(model_tree.lm_l[0], 3), round(model_tree.lm_l[1], 3)),
-                    (round(model_tree.lm_r[0], 3), round(model_tree.lm_r[1], 3)),
-                )
-            self.print_tree(model_tree.right, level + 1)
+            )
+        return summary_df
+
+    def _validate_X_predict(self, X, *args, **kwargs):
+        return X
+
+
+def print_tree_inner_function(model_tree: tree, level: int) -> None:
+    if model_tree is not None:
+        print_tree_inner_function(model_tree.left, level + 1)
+        if model_tree.node == "lin":
+            print(
+                " " * 8 * level + "-->",
+                model_tree.node,
+                (round(model_tree.pivot[0], 3)),
+                round(model_tree.Rt, 3),
+                (round(model_tree.lm_l[0], 3), round(model_tree.lm_l[1], 3)),
+                None,
+            )
+        elif model_tree.node == "END":
+            print(" " * 8 * level + "-->" + "END", round(model_tree.Rt, 3))
+        else:
+            print(
+                " " * 8 * level + "-->",
+                model_tree.node,
+                (round(model_tree.pivot[0], 3), round(model_tree.pivot[1], 3)),
+                round(model_tree.Rt, 3),
+                (round(model_tree.lm_l[0], 3), round(model_tree.lm_l[1], 3)),
+                (round(model_tree.lm_r[0], 3), round(model_tree.lm_r[1], 3)),
+            )
+        print_tree_inner_function(model_tree.right, level + 1)
+
+
+def tree_summary(model_tree, level, tree_id, parent_id, summary):
+    if model_tree is not None:
+        if model_tree.pivot is not None:
+            pivot_idx = model_tree.pivot[0]
+            pivot_value = model_tree.pivot[1]
+        else:
+            pivot_idx = pivot_value = None
+        summary.append(
+            {
+                "tree_id": tree_id,
+                "parent_id": parent_id,
+                "level": level,
+                "node": model_tree.node,
+                "pivot_idx": pivot_idx,
+                "pivot_value": pivot_value,
+                "Rt": model_tree.Rt,
+                "lm_l": model_tree.lm_l,
+                "lm_r": model_tree.lm_r,
+            }
+        )
+        tree_summary(model_tree.left, level + 1, str(uuid.uuid4()).split("-")[-1], tree_id, summary)
+        tree_summary(
+            model_tree.right, level + 1, str(uuid.uuid4()).split("-")[-1], tree_id, summary
+        )
