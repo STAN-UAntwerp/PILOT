@@ -13,11 +13,12 @@ Maintainer: Jakob Raymaekers <jakob.raymaekers@uantwerpen.be>
 Description: Contains the implementation of the PILOT and RaFFLE algorithms in Raymaekers, Rousseeuw, Verdonck and Yao (2024) <doi:10.1007/s10994-024-06590-3> (open access) and Raymaekers, Rousseeuw, Servotte, Verdonck and Yao (2025) <doi:10.48550/arXiv.2502.10185> (open access).
 License: GPL-3
 Imports: Rcpp (>= 1.0.12)
-Depends: methods, ggplot2, ggparty, partykit
+Depends: R (>= 4.1.0), methods, ggplot2, ggparty, partykit
 LinkingTo: Rcpp, RcppArmadillo
 Suggests: testthat (>= 3.0.0), knitr, rmarkdown
 Config/testthat/edition: 3
 RoxygenNote: 7.3.1
 VignetteBuilder: knitr
 NeedsCompilation: yes
+SystemRequirements: C++14
 Packaged: 2024-12-17 13:10:31 UTC; Jakob Raymaekers
