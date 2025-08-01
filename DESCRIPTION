@@ -20,5 +20,5 @@ Config/testthat/edition: 3
 RoxygenNote: 7.3.1
 VignetteBuilder: knitr
 NeedsCompilation: yes
-SystemRequirements: C++14
+SystemRequirements: C++17
 Packaged: 2024-12-17 13:10:31 UTC; Jakob Raymaekers
